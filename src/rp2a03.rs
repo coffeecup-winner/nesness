@@ -11,6 +11,14 @@ pub mod flags {
     pub const N: u8 = 0x20; // Negative
 }
 
+pub struct Info {
+    pub opcode: u8,
+    pub bytes: u8,
+    pub cycles: u8,
+    pub affected_flags: u8,
+    pub name: &'static str,
+}
+
 macro_rules! opcodes {
     ($($opcode: ident, $value: literal, $bytes: literal, $cycles: literal, [ $($affected_flags: tt)* ]),* $(,)?) => {
         pub mod opcodes {
@@ -18,30 +26,48 @@ macro_rules! opcodes {
                 #[allow(dead_code)]
                 pub const $opcode: u8 = $value;
             )*
+
+            lazy_static::lazy_static! {
+                pub static ref OPCODES: Vec<u8> = {
+                    let mut result = vec![];
+                    $(
+                        result.push($value);
+                    )*
+                    result
+                };
+            }
         }
-        pub mod bytes {
+        pub mod info {
+            use $crate::rp2a03::Info;
             $(
                 #[allow(dead_code)]
-                pub const $opcode: u8 = $bytes;
+                pub const $opcode: Info = Info {
+                    opcode: $value,
+                    bytes: $bytes,
+                    cycles: $cycles,
+                    affected_flags: 0x00 $(| $crate::rp2a03::flags::$affected_flags)*,
+                    name: stringify!($opcode),
+                };
             )*
-        }
-        pub mod cycles {
-            $(
-                #[allow(dead_code)]
-                pub const $opcode: u8 = $cycles;
-            )*
-        }
-        pub mod affected_flags {
-            $(
-                #[allow(dead_code)]
-                pub const $opcode: u8 = 0x00 $(| $crate::rp2a03::flags::$affected_flags)*;
-            )*
-        }
-        pub mod names {
-            $(
-                #[allow(dead_code)]
-                pub const $opcode: &str = stringify!($opcode);
-            )*
+
+            lazy_static::lazy_static! {
+                pub static ref INFO: Vec<Info> = {
+                    let mut result = vec![];
+                    for i in 0..0xffu8 {
+                        result.push(Info {
+                            opcode: i,
+                            bytes: 0,
+                            cycles: 0,
+                            affected_flags: 0,
+                            name: "ILL",
+                        });
+                    }
+                    $(
+                        result[$value] = $opcode;
+                    )*
+                    result
+                };
+            }
         }
     };
 }

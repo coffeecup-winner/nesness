@@ -1,10 +1,11 @@
 mod rp2a03;
 
 fn main() {
-    println!("{}: {}, {}, {}, {}",
-        rp2a03::names::ADC_IMM,
-        rp2a03::opcodes::ADC_IMM,
-        rp2a03::bytes::ADC_IMM,
-        rp2a03::cycles::ADC_IMM,
-        rp2a03::affected_flags::ADC_IMM);
+    for opcode in &rp2a03::opcodes::OPCODES[..] {
+        let info = &rp2a03::info::INFO[*opcode as usize];
+        println!(
+            "{}: {}, {}, {}, {}",
+            info.name, info.opcode, info.bytes, info.cycles, info.affected_flags
+        );
+    }
 }
