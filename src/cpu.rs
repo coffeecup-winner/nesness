@@ -25,33 +25,250 @@ impl CPU {
     pub fn run_one(&mut self, ram: &mut [u8]) -> u8 {
         let opcode = self.get_next_byte(ram);
         let info = &info::INFO[opcode as usize];
-        match info.insn {
+        let extra_cycles = match info.insn {
+            Instruction::ILL => panic!("Illegal instruction"),
             Instruction::ADC => {
                 let a = self.reg_a;
-                let (b, has_crossed_page) = self.get_addressed_byte(info.addressing, ram);
-                let mut result = a as u16 + b as u16;
+                let (m, has_crossed_page) = self.get_addressed_byte(info.addressing, ram);
+                let mut result = a as u16 + m as u16;
                 if self.flag_carry {
                     result += 1;
                 }
                 let res_u8 = result as u8;
                 self.reg_a = res_u8;
-                if (result & 0x0100) != 0 {
-                    self.flag_carry = true;
-                }
-                if self.reg_a == 0 {
-                    self.flag_zero = true;
-                }
+                self.update_zn_flags(self.reg_a);
+                self.flag_carry = (result & 0x0100) != 0;
                 // If signs of both inputs is different from the sign of the result
-                if ((a ^ res_u8) & (b ^ res_u8) & 0x80) != 0 {
-                    self.flag_overflow = true;
+                self.flag_overflow = ((a ^ res_u8) & (m ^ res_u8) & 0x80) != 0;
+                if has_crossed_page {
+                    1
+                } else {
+                    0
                 }
-                if (self.reg_a & 0x80) != 0 {
-                    self.flag_negative = true;
-                }
-                info.cycles + if has_crossed_page { 1 } else { 0 }
             }
-            i => panic!("Illegal instruction: {:?}", i),
-        }
+            Instruction::AND => {
+                let a = self.reg_a;
+                let (m, has_crossed_page) = self.get_addressed_byte(info.addressing, ram);
+                self.reg_a = a & m;
+                self.update_zn_flags(self.reg_a);
+                if has_crossed_page {
+                    1
+                } else {
+                    0
+                }
+            }
+            Instruction::ASL => {
+                let (m, _) = self.get_addressed_byte(info.addressing, ram);
+                self.reg_a = m << 1;
+                self.update_zn_flags(self.reg_a);
+                self.flag_carry = (m & 0x80) != 0;
+                0
+            }
+            Instruction::BCC => todo!(),
+            Instruction::BCS => todo!(),
+            Instruction::BEQ => todo!(),
+            Instruction::BIT => {
+                let a = self.reg_a;
+                let (m, _) = self.get_addressed_byte(info.addressing, ram);
+                let result = a & m;
+                self.update_zn_flags(result);
+                self.flag_overflow = (result & 0x40) != 0;
+                0
+            }
+            Instruction::BMI => todo!(),
+            Instruction::BNE => todo!(),
+            Instruction::BPL => todo!(),
+            Instruction::BRK => todo!(),
+            Instruction::BVC => todo!(),
+            Instruction::BVS => todo!(),
+            Instruction::CLC => {
+                self.flag_carry = false;
+                0
+            }
+            Instruction::CLI => {
+                self.flag_interrupt_disable = false;
+                0
+            }
+            Instruction::CLV => {
+                self.flag_overflow = false;
+                0
+            }
+            Instruction::CMP => {
+                let a = self.reg_a;
+                let (m, has_crossed_page) = self.get_addressed_byte(info.addressing, ram);
+                self.update_zn_flags(a - m);
+                self.flag_carry = a >= m;
+                if has_crossed_page {
+                    1
+                } else {
+                    0
+                }
+            }
+            Instruction::CPX => {
+                let x = self.reg_x;
+                let (m, _) = self.get_addressed_byte(info.addressing, ram);
+                self.update_zn_flags(x - m);
+                self.flag_carry = x >= m;
+                0
+            }
+            Instruction::CPY => {
+                let y = self.reg_y;
+                let (m, _) = self.get_addressed_byte(info.addressing, ram);
+                self.update_zn_flags(y - m);
+                self.flag_carry = y >= m;
+                0
+            }
+            Instruction::DEC => todo!(),
+            Instruction::DEX => {
+                self.reg_x -= 1;
+                self.update_zn_flags(self.reg_x);
+                0
+            }
+            Instruction::DEY => {
+                self.reg_y -= 1;
+                self.update_zn_flags(self.reg_y);
+                0
+            }
+            Instruction::EOR => {
+                let a = self.reg_a;
+                let (m, has_crossed_page) = self.get_addressed_byte(info.addressing, ram);
+                self.reg_a = a ^ m;
+                self.update_zn_flags(self.reg_a);
+                if has_crossed_page {
+                    1
+                } else {
+                    0
+                }
+            }
+            Instruction::INC => todo!(),
+            Instruction::INX => {
+                self.reg_x += 1;
+                self.update_zn_flags(self.reg_x);
+                0
+            }
+            Instruction::INY => {
+                self.reg_y += 1;
+                self.update_zn_flags(self.reg_y);
+                0
+            }
+            Instruction::JMP => todo!(),
+            Instruction::JSR => todo!(),
+            Instruction::LDA => {
+                let (m, has_crossed_page) = self.get_addressed_byte(info.addressing, ram);
+                self.reg_a = m;
+                self.update_zn_flags(self.reg_a);
+                if has_crossed_page {
+                    1
+                } else {
+                    0
+                }
+            }
+            Instruction::LDX => {
+                let (m, has_crossed_page) = self.get_addressed_byte(info.addressing, ram);
+                self.reg_x = m;
+                self.update_zn_flags(self.reg_x);
+                if has_crossed_page {
+                    1
+                } else {
+                    0
+                }
+            }
+            Instruction::LDY => {
+                let (m, has_crossed_page) = self.get_addressed_byte(info.addressing, ram);
+                self.reg_y = m;
+                self.update_zn_flags(self.reg_y);
+                if has_crossed_page {
+                    1
+                } else {
+                    0
+                }
+            }
+            Instruction::LSR => {
+                let (m, _) = self.get_addressed_byte(info.addressing, ram);
+                self.reg_a = m >> 1;
+                self.update_zn_flags(self.reg_a);
+                self.flag_carry = (m & 0x01) != 0;
+                0
+            }
+            Instruction::NOP => 0,
+            Instruction::ORA => {
+                let a = self.reg_a;
+                let (m, has_crossed_page) = self.get_addressed_byte(info.addressing, ram);
+                self.reg_a = a | m;
+                self.update_zn_flags(self.reg_a);
+                if has_crossed_page {
+                    1
+                } else {
+                    0
+                }
+            }
+            Instruction::PHA => todo!(),
+            Instruction::PHP => todo!(),
+            Instruction::PLA => todo!(),
+            Instruction::PLP => todo!(),
+            Instruction::ROL => {
+                let (m, _) = self.get_addressed_byte(info.addressing, ram);
+                self.reg_a = m << 1;
+                if self.flag_carry {
+                    self.reg_a |= 0x01;
+                }
+                self.update_zn_flags(self.reg_a);
+                self.flag_carry = (m & 0x80) != 0;
+                0
+            }
+            Instruction::ROR => {
+                let (m, _) = self.get_addressed_byte(info.addressing, ram);
+                self.reg_a = m >> 1;
+                if self.flag_carry {
+                    self.reg_a |= 0x80;
+                }
+                self.update_zn_flags(self.reg_a);
+                self.flag_carry = (m & 0x01) != 0;
+                0
+            }
+            Instruction::RTI => todo!(),
+            Instruction::RTS => todo!(),
+            Instruction::SBC => todo!(),
+            Instruction::SEC => {
+                self.flag_carry = true;
+                0
+            }
+            Instruction::SEI => {
+                self.flag_interrupt_disable = true;
+                0
+            }
+            Instruction::STA => todo!(),
+            Instruction::STX => todo!(),
+            Instruction::STY => todo!(),
+            Instruction::TAX => {
+                self.reg_x = self.reg_a;
+                self.update_zn_flags(self.reg_x);
+                0
+            }
+            Instruction::TAY => {
+                self.reg_y = self.reg_a;
+                self.update_zn_flags(self.reg_y);
+                0
+            }
+            Instruction::TSX => todo!(),
+            Instruction::TXA => {
+                self.reg_a = self.reg_x;
+                self.update_zn_flags(self.reg_a);
+                0
+            }
+            Instruction::TXS => todo!(),
+            Instruction::TYA => {
+                self.reg_a = self.reg_x;
+                self.update_zn_flags(self.reg_a);
+                0
+            }
+        };
+        info.cycles + extra_cycles
+    }
+
+    fn update_zn_flags(&mut self, val: u8) {
+        self.flag_zero = val == 0;
+        self.flag_negative = (val & 0x80) != 0;
     }
 
     // Returns (byte, has crossed the page)
