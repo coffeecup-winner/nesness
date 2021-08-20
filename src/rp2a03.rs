@@ -74,7 +74,6 @@ pub enum Instruction {
 
 #[derive(Debug, Clone, Copy)]
 pub enum AddressingMode {
-    Invalid,
     Implicit,
     Accumulator,
     Immediate,
@@ -148,7 +147,7 @@ macro_rules! opcodes {
                         result.push(Info {
                             opcode: i,
                             insn: $crate::rp2a03::Instruction::ILL,
-                            addressing: $crate::rp2a03::AddressingMode::Invalid,
+                            addressing: $crate::rp2a03::AddressingMode::Implicit,
                             bytes: 0,
                             cycles: 0,
                             affected_flags: 0,

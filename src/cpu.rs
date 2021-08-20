@@ -274,7 +274,6 @@ impl CPU {
     // Returns (byte, has crossed the page)
     fn get_addressed_byte(&mut self, mode: AddressingMode, ram: &[u8]) -> (u8, bool) {
         match mode {
-            AddressingMode::Invalid => panic!("Invalid addressing mode"),
             AddressingMode::Implicit => {
                 panic!("Implicit addressing mode must be handled by the caller")
             }
