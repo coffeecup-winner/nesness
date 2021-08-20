@@ -28,10 +28,7 @@ impl CPU {
         match info.insn {
             Instruction::ADC => {
                 let a = self.reg_a;
-                let b = match info.addressing {
-                    AddressingMode::Immediate => self.get_next_byte(ram),
-                    a => panic!("Illegal addressing mode: {:?}", a),
-                };
+                let (b, has_crossed_page) = self.get_addressed_byte(info.addressing, ram);
                 let mut result = a as u16 + b as u16;
                 if self.flag_carry {
                     result += 1;
@@ -51,9 +48,74 @@ impl CPU {
                 if (self.reg_a & 0x80) != 0 {
                     self.flag_negative = true;
                 }
-                info.cycles
+                info.cycles + if has_crossed_page { 1 } else { 0 }
             }
             i => panic!("Illegal instruction: {:?}", i),
+        }
+    }
+
+    // Returns (byte, has crossed the page)
+    fn get_addressed_byte(&mut self, mode: AddressingMode, ram: &[u8]) -> (u8, bool) {
+        match mode {
+            AddressingMode::Invalid => panic!("Invalid addressing mode"),
+            AddressingMode::Implicit => {
+                panic!("Implicit addressing mode must be handled by the caller")
+            }
+            AddressingMode::Accumulator => (self.reg_a, false),
+            AddressingMode::Immediate => (self.get_next_byte(ram), false),
+            AddressingMode::ZeroPage => (ram[self.get_next_byte(ram) as usize], false),
+            AddressingMode::ZeroPageX => {
+                (ram[(self.get_next_byte(ram) + self.reg_x) as usize], false)
+            }
+            AddressingMode::ZeroPageY => {
+                (ram[(self.get_next_byte(ram) + self.reg_y) as usize], false)
+            }
+            AddressingMode::Relative => {
+                panic!("Relative addressing mode must be handled by the caller")
+            }
+            AddressingMode::Absolute => {
+                let lo = self.get_next_byte(ram);
+                let hi = self.get_next_byte(ram);
+                let addr = (hi as u16) << 8 + lo;
+                (ram[addr as usize], false)
+            }
+            AddressingMode::AbsoluteX => {
+                let lo = self.get_next_byte(ram);
+                let hi = self.get_next_byte(ram);
+                let addr_base = (hi as u16) << 8 + lo;
+                let addr = addr_base + self.reg_x as u16;
+                let has_crossed_page = self.reg_x > addr as u8;
+                (ram[addr as usize], has_crossed_page)
+            }
+            AddressingMode::AbsoluteY => {
+                let lo = self.get_next_byte(ram);
+                let hi = self.get_next_byte(ram);
+                let addr_base = (hi as u16) << 8 + lo;
+                let addr = addr_base + self.reg_y as u16;
+                let has_crossed_page = self.reg_y > addr as u8;
+                (ram[addr as usize], has_crossed_page)
+            }
+            AddressingMode::Indirect => {
+                let lo = self.get_next_byte(ram);
+                let hi = self.get_next_byte(ram);
+                let addr_indirect = ((hi as u16) << 8 + lo) as usize;
+                let lo = ram[addr_indirect];
+                let hi = ram[addr_indirect + 1];
+                let addr = (hi as u16) << 8 + lo;
+                (ram[addr as usize], false)
+            }
+            AddressingMode::IndexedIndirect => {
+                let zero_page_addr = self.get_next_byte(ram);
+                let addr = ram[(zero_page_addr + self.reg_x) as usize];
+                (ram[addr as usize], false)
+            }
+            AddressingMode::IndirectIndexed => {
+                let zero_page_addr = self.get_next_byte(ram);
+                let addr_base = ram[zero_page_addr as usize] as u16;
+                let addr = addr_base + self.reg_y as u16;
+                let has_crossed_page = self.reg_y > addr as u8;
+                (ram[addr as usize], has_crossed_page)
+            }
         }
     }
 
