@@ -1,3 +1,5 @@
+use crate::rp2a03::{info, AddressingMode, Instruction};
+
 #[derive(Default, Debug)]
 pub struct CPU {
     pub pc: u16,
@@ -22,12 +24,14 @@ impl CPU {
 
     pub fn run_one(&mut self, ram: &mut [u8]) -> u8 {
         let opcode = self.get_next_byte(ram);
-        use crate::rp2a03::{info, opcodes::*};
-        match opcode {
-            ADC_IMM => {
-                let info = &info::ADC_IMM;
+        let info = &info::INFO[opcode as usize];
+        match info.insn {
+            Instruction::ADC => {
                 let a = self.reg_a;
-                let b = self.get_next_byte(ram);
+                let b = match info.addressing {
+                    AddressingMode::Immediate => self.get_next_byte(ram),
+                    a => panic!("Illegal addressing mode: {:?}", a),
+                };
                 let mut result = a as u16 + b as u16;
                 if self.flag_carry {
                     result += 1;
@@ -49,7 +53,7 @@ impl CPU {
                 }
                 info.cycles
             }
-            _ => panic!("Illegal instruction: {}", opcode),
+            i => panic!("Illegal instruction: {:?}", i),
         }
     }
 
