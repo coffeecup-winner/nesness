@@ -1,3 +1,4 @@
+mod cpu;
 mod rp2a03;
 
 fn main() {
