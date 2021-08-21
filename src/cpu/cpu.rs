@@ -16,7 +16,7 @@ pub struct CPU {
     pub flag_break: bool,
     pub flag_overflow: bool,
     pub flag_negative: bool,
-    
+
     // Data for testing
     #[cfg(test)]
     __saved_flags: u8,
@@ -237,9 +237,9 @@ impl CPU {
                 let m = self
                     .get_addressed_byte(info.addressing, ram)
                     .prefetched_byte;
-                let result = a & m;
-                self.update_zn_flags(result);
-                self.flag_overflow = (result & 0x40) != 0;
+                self.flag_zero = (m & a) == 0;
+                self.flag_overflow = (m & 0x40) != 0;
+                self.flag_negative = (m & 0x80) != 0;
                 0
             }
 
@@ -855,6 +855,10 @@ impl CPU {
     fn __test_flags(&self, allowed_flags: u8) {
         let current_flags = self.pack_flags();
         let change = self.__saved_flags ^ current_flags;
-        assert_eq!(0, change & !allowed_flags, "Unexpected flags have been modified");
+        assert_eq!(
+            0,
+            change & !allowed_flags,
+            "Unexpected flags have been modified"
+        );
     }
 }
