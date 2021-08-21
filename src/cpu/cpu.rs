@@ -789,13 +789,13 @@ impl CPU {
                 AddressedByteMut::new(&mut ram[addr as usize])
             }
             AddressingMode::IndexedIndirect => {
-                let zero_page_addr = self.get_next_byte(ram);
-                let addr = ram[(zero_page_addr + self.reg_x) as usize] as u16;
+                let zero_page_addr = (self.get_next_byte(ram) + self.reg_x) as u16;
+                let addr = CPU::read_addr(ram, zero_page_addr);
                 AddressedByteMut::new(&mut ram[addr as usize])
             }
             AddressingMode::IndirectIndexed => {
                 let zero_page_addr = self.get_next_byte(ram);
-                let addr_base = ram[zero_page_addr as usize] as u16;
+                let addr_base = CPU::read_addr(ram, zero_page_addr as u16);
                 let addr = addr_base + self.reg_y as u16;
                 AddressedByteMut::new(&mut ram[addr as usize])
             }
