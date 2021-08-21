@@ -164,8 +164,7 @@ impl CPU {
                 0
             }
             Instruction::PHA => {
-                ram[(0x0100 + self.reg_s as u16) as usize] = self.reg_a;
-                self.reg_s -= 1;
+                self.push_byte(ram, self.reg_a);
                 0
             }
             Instruction::PHP => {
@@ -188,19 +187,16 @@ impl CPU {
                 if self.flag_negative {
                     p |= flags::N;
                 }
-                ram[(0x0100 + self.reg_s as u16) as usize] = p;
-                self.reg_s -= 1;
+                self.push_byte(ram, p);
                 0
             }
             Instruction::PLA => {
-                self.reg_s += 1;
-                self.reg_a = ram[(0x0100 + self.reg_s as u16) as usize];
+                self.reg_a = self.pull_byte(ram);
                 self.update_zn_flags(self.reg_a);
                 0
             }
             Instruction::PLP => {
-                self.reg_s += 1;
-                let p = ram[(0x0100 + self.reg_s as u16) as usize];
+                let p = self.pull_byte(ram);
                 self.flag_carry = (p & flags::C) != 0;
                 self.flag_zero = (p & flags::Z) != 0;
                 self.flag_interrupt_disable = (p & flags::I) != 0;
@@ -448,8 +444,21 @@ impl CPU {
                 self.pc = addr;
                 0
             }
-            Instruction::JSR => todo!(),
-            Instruction::RTS => todo!(),
+            Instruction::JSR => {
+                let addr = self.get_addressed_byte(info.addressing, ram).addr;
+                let return_addr = self.pc - 1;
+                self.push_byte(ram, (return_addr >> 8) as u8);
+                self.push_byte(ram, return_addr as u8);
+                self.pc = addr;
+                0
+            }
+            Instruction::RTS => {
+                let mut return_addr = self.pull_byte(ram) as u16;
+                return_addr |= (self.pull_byte(ram) as u16) << 8;
+                return_addr += 1;
+                self.pc = return_addr;
+                0
+            }
 
             // ===== Branches =====
             Instruction::BCC => {
@@ -783,6 +792,16 @@ impl CPU {
         let byte = ram[self.pc as usize];
         self.pc += 1;
         byte
+    }
+
+    fn push_byte(&mut self, ram: &mut [u8], b: u8) {
+        ram[(0x0100 + self.reg_s as u16) as usize] = b;
+        self.reg_s -= 1;
+    }
+
+    fn pull_byte(&mut self, ram: &[u8]) -> u8 {
+        self.reg_s += 1;
+        return ram[(0x0100 + self.reg_s as u16) as usize];
     }
 }
 
