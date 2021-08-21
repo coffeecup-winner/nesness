@@ -9,7 +9,7 @@ mod tests {
     use rp2a03::opcodes::*;
 
     macro_rules! assert_zn {
-        ($cpu: ident, $z: literal, $n: literal) => {
+        ($cpu: ident, $z: expr, $n: expr) => {
             assert_eq!($z, $cpu.flag_zero);
             assert_eq!($n, $cpu.flag_negative);
         };
@@ -30,12 +30,9 @@ mod tests {
     }
 
     #[test]
-    fn test_lda_imm() {
+    fn test_lda() {
+        // Addressing
         let (mut cpu, mut ram) = test_cpu(&vec![
-            LDX_IMM, 0x10,
-            LDY_IMM, 0x20,
-
-            // Addressing modes
             LDA_IMM, 0x42,
             LDA_ZPG, 0x80,
             LDA_ZPX, 0x80,
@@ -48,13 +45,10 @@ mod tests {
             // Page crossing
             LDA_ABX, 0xf4, 0x12,
             LDA_ABY, 0xe5, 0x12,
-            LDY_IMM, 0xc0,
             LDA_INY, 0xc0,
-
-            // Flags
-            LDA_IMM, 0xff,
-            LDA_IMM, 0x00,
         ]);
+        cpu.reg_x = 0x10;
+        cpu.reg_y = 0x20;
         ram[0x80] = 0x43;
         ram[0x90] = 0x44;
         ram[0xb0] = 0x89;
@@ -69,51 +63,39 @@ mod tests {
         ram[0x1304] = 0x4a;
         ram[0x1305] = 0x4b;
         ram[0x3516] = 0x4c;
-        cpu.run_one(&mut ram);
-        cpu.run_one(&mut ram);
 
         assert_eq!(2, cpu.run_one(&mut ram));
         assert_eq!(0x42, cpu.reg_a);
-        assert_zn!(cpu, false, false);
         assert_eq!(3, cpu.run_one(&mut ram));
         assert_eq!(0x43, cpu.reg_a);
-        assert_zn!(cpu, false, false);
         assert_eq!(4, cpu.run_one(&mut ram));
         assert_eq!(0x44, cpu.reg_a);
-        assert_zn!(cpu, false, false);
         assert_eq!(4, cpu.run_one(&mut ram));
         assert_eq!(0x45, cpu.reg_a);
-        assert_zn!(cpu, false, false);
         assert_eq!(4, cpu.run_one(&mut ram));
         assert_eq!(0x46, cpu.reg_a);
-        assert_zn!(cpu, false, false);
         assert_eq!(4, cpu.run_one(&mut ram));
         assert_eq!(0x47, cpu.reg_a);
-        assert_zn!(cpu, false, false);
         assert_eq!(6, cpu.run_one(&mut ram));
         assert_eq!(0x48, cpu.reg_a);
-        assert_zn!(cpu, false, false);
         assert_eq!(5, cpu.run_one(&mut ram));
         assert_eq!(0x49, cpu.reg_a);
-        assert_zn!(cpu, false, false);
 
         assert_eq!(5, cpu.run_one(&mut ram));
         assert_eq!(0x4a, cpu.reg_a);
-        assert_zn!(cpu, false, false);
         assert_eq!(5, cpu.run_one(&mut ram));
         assert_eq!(0x4b, cpu.reg_a);
-        assert_zn!(cpu, false, false);
-        cpu.run_one(&mut ram);
+        cpu.reg_y = 0xc0;
         assert_eq!(6, cpu.run_one(&mut ram));
         assert_eq!(0x4c, cpu.reg_a);
-        assert_zn!(cpu, false, false);
 
-        assert_eq!(2, cpu.run_one(&mut ram));
-        assert_eq!(0xff, cpu.reg_a);
-        assert_zn!(cpu, false, true);
-        assert_eq!(2, cpu.run_one(&mut ram));
-        assert_eq!(0x00, cpu.reg_a);
-        assert_zn!(cpu, true, false);
+        // Values/flags
+        for i in 0..=0xff {
+            let (mut cpu, mut ram) = test_cpu(&vec![LDA_IMM, i]);
+            cpu.run_one(&mut ram);
+            assert_eq!(i, cpu.reg_a);
+            assert_zn!(cpu, i == 0, i >= 0x80);
+        }
     }
 
     #[test]
