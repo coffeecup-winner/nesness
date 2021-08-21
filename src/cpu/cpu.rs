@@ -58,9 +58,7 @@ impl CPU {
         // Internals of BRK/IRQ/NMI/RESET on a MOS 6502 by Michael Steil
         *self = Self::default();
         self.reg_s = self.reg_s.wrapping_sub(3);
-        let mut addr = ram[0xfffc] as u16;
-        addr |= (ram[0xfffd] as u16) << 8;
-        self.pc = addr;
+        self.pc = CPU::read_addr(ram, 0xfffc);
     }
 
     pub fn run_one(&mut self, ram: &mut [u8]) -> u8 {
@@ -604,9 +602,7 @@ impl CPU {
                 self.push_addr(ram, self.pc);
                 let p = self.pack_flags();
                 self.push_byte(ram, p);
-                let mut addr = ram[0xfffe] as u16;
-                addr |= (ram[0xffff] as u16) << 8;
-                self.pc = addr;
+                self.pc = CPU::read_addr(ram, 0xfffe);
                 self.flag_break = true;
                 0
             }
@@ -696,13 +692,13 @@ impl CPU {
             AddressingMode::Absolute => {
                 let lo = self.get_next_byte(ram);
                 let hi = self.get_next_byte(ram);
-                let addr = (hi as u16) << 8 + lo;
+                let addr = ((hi as u16) << 8) + lo as u16;
                 AddressedByte::new(addr, ram[addr as usize], false)
             }
             AddressingMode::AbsoluteX => {
                 let lo = self.get_next_byte(ram);
                 let hi = self.get_next_byte(ram);
-                let addr_base = (hi as u16) << 8 + lo;
+                let addr_base = ((hi as u16) << 8) + lo as u16;
                 let addr = addr_base + self.reg_x as u16;
                 let has_crossed_page = self.reg_x > addr as u8;
                 AddressedByte::new(addr, ram[addr as usize], has_crossed_page)
@@ -710,7 +706,7 @@ impl CPU {
             AddressingMode::AbsoluteY => {
                 let lo = self.get_next_byte(ram);
                 let hi = self.get_next_byte(ram);
-                let addr_base = (hi as u16) << 8 + lo;
+                let addr_base = ((hi as u16) << 8) + lo as u16;
                 let addr = addr_base + self.reg_y as u16;
                 let has_crossed_page = self.reg_y > addr as u8;
                 AddressedByte::new(addr, ram[addr as usize], has_crossed_page)
@@ -718,20 +714,18 @@ impl CPU {
             AddressingMode::Indirect => {
                 let lo = self.get_next_byte(ram);
                 let hi = self.get_next_byte(ram);
-                let addr_indirect = ((hi as u16) << 8 + lo) as usize;
-                let lo = ram[addr_indirect];
-                let hi = ram[addr_indirect + 1];
-                let addr = (hi as u16) << 8 + lo;
+                let addr_indirect = ((hi as u16) << 8) + lo as u16;
+                let addr = CPU::read_addr(ram, addr_indirect);
                 AddressedByte::new(addr, ram[addr as usize], false)
             }
             AddressingMode::IndexedIndirect => {
-                let zero_page_addr = self.get_next_byte(ram);
-                let addr = ram[(zero_page_addr + self.reg_x) as usize] as u16;
+                let zero_page_addr = (self.get_next_byte(ram) + self.reg_x) as u16;
+                let addr = CPU::read_addr(ram, zero_page_addr);
                 AddressedByte::new(addr, ram[addr as usize], false)
             }
             AddressingMode::IndirectIndexed => {
                 let zero_page_addr = self.get_next_byte(ram);
-                let addr_base = ram[zero_page_addr as usize] as u16;
+                let addr_base = CPU::read_addr(ram, zero_page_addr as u16);
                 let addr = addr_base + self.reg_y as u16;
                 let has_crossed_page = self.reg_y > addr as u8;
                 AddressedByte::new(addr, ram[addr as usize], has_crossed_page)
@@ -770,30 +764,28 @@ impl CPU {
             AddressingMode::Absolute => {
                 let lo = self.get_next_byte(ram);
                 let hi = self.get_next_byte(ram);
-                let addr = (hi as u16) << 8 + lo;
+                let addr = ((hi as u16) << 8) + lo as u16;
                 AddressedByteMut::new(&mut ram[addr as usize])
             }
             AddressingMode::AbsoluteX => {
                 let lo = self.get_next_byte(ram);
                 let hi = self.get_next_byte(ram);
-                let addr_base = (hi as u16) << 8 + lo;
+                let addr_base = ((hi as u16) << 8) + lo as u16;
                 let addr = addr_base + self.reg_x as u16;
                 AddressedByteMut::new(&mut ram[addr as usize])
             }
             AddressingMode::AbsoluteY => {
                 let lo = self.get_next_byte(ram);
                 let hi = self.get_next_byte(ram);
-                let addr_base = (hi as u16) << 8 + lo;
+                let addr_base = ((hi as u16) << 8) + lo as u16;
                 let addr = addr_base + self.reg_y as u16;
                 AddressedByteMut::new(&mut ram[addr as usize])
             }
             AddressingMode::Indirect => {
                 let lo = self.get_next_byte(ram);
                 let hi = self.get_next_byte(ram);
-                let addr_indirect = ((hi as u16) << 8 + lo) as usize;
-                let lo = ram[addr_indirect];
-                let hi = ram[addr_indirect + 1];
-                let addr = (hi as u16) << 8 + lo;
+                let addr_indirect = ((hi as u16) << 8) + lo as u16;
+                let addr = CPU::read_addr(ram, addr_indirect);
                 AddressedByteMut::new(&mut ram[addr as usize])
             }
             AddressingMode::IndexedIndirect => {
@@ -835,5 +827,11 @@ impl CPU {
         let mut addr = self.pull_byte(ram) as u16;
         addr |= (self.pull_byte(ram) as u16) << 8;
         addr
+    }
+
+    fn read_addr(ram: &[u8], addr: u16) -> u16 {
+        let mut result = ram[addr as usize] as u16;
+        result |= (ram[addr as usize + 1] as u16) << 8;
+        result
     }
 }
