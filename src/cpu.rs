@@ -111,9 +111,57 @@ impl CPU {
                 self.flag_carry = (prev & 0x80) != 0;
                 0
             }
-            Instruction::BCC => todo!(),
-            Instruction::BCS => todo!(),
-            Instruction::BEQ => todo!(),
+            Instruction::BCC => {
+                if self.flag_carry {
+                    0
+                } else {
+                    let AddressedByte {
+                        addr,
+                        has_crossed_page,
+                        ..
+                    } = self.get_addressed_byte(info.addressing, ram);
+                    self.pc = addr;
+                    if has_crossed_page {
+                        2
+                    } else {
+                        1
+                    }
+                }
+            }
+            Instruction::BCS => {
+                if !self.flag_carry {
+                    0
+                } else {
+                    let AddressedByte {
+                        addr,
+                        has_crossed_page,
+                        ..
+                    } = self.get_addressed_byte(info.addressing, ram);
+                    self.pc = addr;
+                    if has_crossed_page {
+                        2
+                    } else {
+                        1
+                    }
+                }
+            }
+            Instruction::BEQ => {
+                if !self.flag_zero {
+                    0
+                } else {
+                    let AddressedByte {
+                        addr,
+                        has_crossed_page,
+                        ..
+                    } = self.get_addressed_byte(info.addressing, ram);
+                    self.pc = addr;
+                    if has_crossed_page {
+                        2
+                    } else {
+                        1
+                    }
+                }
+            }
             Instruction::BIT => {
                 let a = self.reg_a;
                 let m = self
@@ -124,12 +172,92 @@ impl CPU {
                 self.flag_overflow = (result & 0x40) != 0;
                 0
             }
-            Instruction::BMI => todo!(),
-            Instruction::BNE => todo!(),
-            Instruction::BPL => todo!(),
+            Instruction::BMI => {
+                if !self.flag_negative {
+                    0
+                } else {
+                    let AddressedByte {
+                        addr,
+                        has_crossed_page,
+                        ..
+                    } = self.get_addressed_byte(info.addressing, ram);
+                    self.pc = addr;
+                    if has_crossed_page {
+                        2
+                    } else {
+                        1
+                    }
+                }
+            }
+            Instruction::BNE => {
+                if self.flag_zero {
+                    0
+                } else {
+                    let AddressedByte {
+                        addr,
+                        has_crossed_page,
+                        ..
+                    } = self.get_addressed_byte(info.addressing, ram);
+                    self.pc = addr;
+                    if has_crossed_page {
+                        2
+                    } else {
+                        1
+                    }
+                }
+            }
+            Instruction::BPL => {
+                if self.flag_negative {
+                    0
+                } else {
+                    let AddressedByte {
+                        addr,
+                        has_crossed_page,
+                        ..
+                    } = self.get_addressed_byte(info.addressing, ram);
+                    self.pc = addr;
+                    if has_crossed_page {
+                        2
+                    } else {
+                        1
+                    }
+                }
+            }
             Instruction::BRK => todo!(),
-            Instruction::BVC => todo!(),
-            Instruction::BVS => todo!(),
+            Instruction::BVC => {
+                if self.flag_overflow {
+                    0
+                } else {
+                    let AddressedByte {
+                        addr,
+                        has_crossed_page,
+                        ..
+                    } = self.get_addressed_byte(info.addressing, ram);
+                    self.pc = addr;
+                    if has_crossed_page {
+                        2
+                    } else {
+                        1
+                    }
+                }
+            }
+            Instruction::BVS => {
+                if !self.flag_overflow {
+                    0
+                } else {
+                    let AddressedByte {
+                        addr,
+                        has_crossed_page,
+                        ..
+                    } = self.get_addressed_byte(info.addressing, ram);
+                    self.pc = addr;
+                    if has_crossed_page {
+                        2
+                    } else {
+                        1
+                    }
+                }
+            }
             Instruction::CLC => {
                 self.flag_carry = false;
                 0
@@ -224,7 +352,11 @@ impl CPU {
                 self.update_zn_flags(self.reg_y);
                 0
             }
-            Instruction::JMP => todo!(),
+            Instruction::JMP => {
+                let addr = self.get_addressed_byte(info.addressing, ram).addr;
+                self.pc = addr;
+                0
+            }
             Instruction::JSR => todo!(),
             Instruction::LDA => {
                 let AddressedByte {
@@ -403,7 +535,11 @@ impl CPU {
                 AddressedByte::new(addr, ram[addr as usize], false)
             }
             AddressingMode::Relative => {
-                panic!("Relative addressing mode must be handled by the caller")
+                let offset = self.get_next_byte(ram) as i8;
+                let offset_u16 = (0x100 + offset as i16) as u16;
+                let addr = (self.pc - 0x100 + offset_u16) as u16;
+                let has_crossed_page = (self.pc & 0x0100) != (addr & 0x0100);
+                AddressedByte::new(addr, ram[addr as usize], has_crossed_page)
             }
             AddressingMode::Absolute => {
                 let lo = self.get_next_byte(ram);
