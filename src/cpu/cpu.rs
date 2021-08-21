@@ -19,6 +19,8 @@ pub struct CPU {
 
     // Data for testing
     #[cfg(test)]
+    __insn_bytes_read: u8,
+    #[cfg(test)]
     __saved_flags: u8,
 }
 
@@ -67,10 +69,10 @@ impl CPU {
     }
 
     pub fn run_one(&mut self, ram: &mut [u8]) -> u8 {
+        #[cfg(test)]
+        self.__init_checks();
         let opcode = self.get_next_byte(ram);
         let info = &info::INFO[opcode as usize];
-        #[cfg(test)]
-        self.__save_flags();
         let extra_cycles = match info.insn {
             // ===== Load/store operations =====
             Instruction::LDA => {
@@ -627,7 +629,7 @@ impl CPU {
             Instruction::ILL => panic!("Illegal instruction"),
         };
         #[cfg(test)]
-        self.__test_flags(info.affected_flags);
+        self.__run_checks(info.bytes, info.affected_flags);
         info.cycles + extra_cycles
     }
 
@@ -679,6 +681,10 @@ impl CPU {
             AddressingMode::Immediate => {
                 let addr = self.pc;
                 self.pc += 1; // Need to increase it as we fetch the byte
+                #[cfg(test)]
+                {
+                    self.__insn_bytes_read += 1;
+                }
                 AddressedByte::new(addr, ram[addr as usize], false)
             }
             AddressingMode::ZeroPage => {
@@ -816,6 +822,10 @@ impl CPU {
     fn get_next_byte(&mut self, ram: &[u8]) -> u8 {
         let byte = ram[self.pc as usize];
         self.pc += 1;
+        #[cfg(test)]
+        {
+            self.__insn_bytes_read += 1;
+        }
         byte
     }
 
@@ -847,12 +857,15 @@ impl CPU {
     }
 
     #[cfg(test)]
-    fn __save_flags(&mut self) {
+    fn __init_checks(&mut self) {
+        self.__insn_bytes_read = 0;
         self.__saved_flags = self.pack_flags();
     }
 
     #[cfg(test)]
-    fn __test_flags(&self, allowed_flags: u8) {
+    fn __run_checks(&self, bytes: u8, allowed_flags: u8) {
+        assert_eq!(bytes, self.__insn_bytes_read);
+
         let current_flags = self.pack_flags();
         let change = self.__saved_flags ^ current_flags;
         assert_eq!(
