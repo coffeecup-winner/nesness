@@ -1,4 +1,5 @@
 mod load_store;
+mod status_flags;
 
 // These exports are used by submodules
 use super::*;
