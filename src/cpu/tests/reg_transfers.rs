@@ -4,7 +4,7 @@ use super::*;
 fn test_tax() {
     // Values/flags
     for i in 0..=0xff {
-        let (mut cpu, mut ram) = test_cpu(&vec![TAX_IMP, i]);
+        let (mut cpu, mut ram) = test_cpu(&vec![TAX_IMP]);
         cpu.reg_a = i;
         cpu.reg_x = !i;
         assert_eq!(2, cpu.run_one(&mut ram));
@@ -17,7 +17,7 @@ fn test_tax() {
 fn test_tay() {
     // Values/flags
     for i in 0..=0xff {
-        let (mut cpu, mut ram) = test_cpu(&vec![TAY_IMP, i]);
+        let (mut cpu, mut ram) = test_cpu(&vec![TAY_IMP]);
         cpu.reg_a = i;
         cpu.reg_y = !i;
         assert_eq!(2, cpu.run_one(&mut ram));
@@ -30,7 +30,7 @@ fn test_tay() {
 fn test_txa() {
     // Values/flags
     for i in 0..=0xff {
-        let (mut cpu, mut ram) = test_cpu(&vec![TXA_IMP, i]);
+        let (mut cpu, mut ram) = test_cpu(&vec![TXA_IMP]);
         cpu.reg_x = i;
         cpu.reg_a = !i;
         assert_eq!(2, cpu.run_one(&mut ram));
@@ -43,7 +43,7 @@ fn test_txa() {
 fn test_tya() {
     // Values/flags
     for i in 0..=0xff {
-        let (mut cpu, mut ram) = test_cpu(&vec![TYA_IMP, i]);
+        let (mut cpu, mut ram) = test_cpu(&vec![TYA_IMP]);
         cpu.reg_y = i;
         cpu.reg_a = !i;
         assert_eq!(2, cpu.run_one(&mut ram));
