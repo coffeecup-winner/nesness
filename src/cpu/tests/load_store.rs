@@ -5,6 +5,7 @@ fn test_lda() {
     // Values/flags
     for i in 0..=0xff {
         let (mut cpu, mut ram) = test_cpu(&vec![LDA_IMM, i]);
+        cpu.reg_a = !i;
         cpu.run_one(&mut ram);
         assert_eq!(i, cpu.reg_a);
         assert_zn!(cpu, i == 0, i >= 0x80);
@@ -85,6 +86,7 @@ fn test_ldx() {
     // Values/flags
     for i in 0..=0xff {
         let (mut cpu, mut ram) = test_cpu(&vec![LDX_IMM, i]);
+        cpu.reg_x = !i;
         cpu.run_one(&mut ram);
         assert_eq!(i, cpu.reg_x);
         assert_zn!(cpu, i == 0, i >= 0x80);
@@ -133,6 +135,7 @@ fn test_ldy() {
     // Values/flags
     for i in 0..=0xff {
         let (mut cpu, mut ram) = test_cpu(&vec![LDY_IMM, i]);
+        cpu.reg_y = !i;
         cpu.run_one(&mut ram);
         assert_eq!(i, cpu.reg_y);
         assert_zn!(cpu, i == 0, i >= 0x80);
@@ -182,6 +185,7 @@ fn test_sta() {
     for i in 0..=0xff {
         let (mut cpu, mut ram) = test_cpu(&vec![STA_ZPG, 0x00]);
         cpu.reg_a = i;
+        ram[0x00] = !i;
         cpu.run_one(&mut ram);
         assert_eq!(i, ram[0x00]);
     }
@@ -242,6 +246,7 @@ fn test_stx() {
     for i in 0..=0xff {
         let (mut cpu, mut ram) = test_cpu(&vec![STX_ZPG, 0x00]);
         cpu.reg_x = i;
+        ram[0x00] = !i;
         cpu.run_one(&mut ram);
         assert_eq!(i, ram[0x00]);
     }
@@ -276,6 +281,7 @@ fn test_sty() {
     for i in 0..=0xff {
         let (mut cpu, mut ram) = test_cpu(&vec![STY_ZPG, 0x00]);
         cpu.reg_y = i;
+        ram[0x00] = !i;
         cpu.run_one(&mut ram);
         assert_eq!(i, ram[0x00]);
     }
