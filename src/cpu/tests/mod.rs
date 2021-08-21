@@ -4,6 +4,7 @@ mod load_store;
 mod logical;
 mod reg_transfers;
 mod shifts;
+mod stack;
 mod status_flags;
 
 // These exports are used by submodules

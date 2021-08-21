@@ -841,11 +841,11 @@ impl CPU {
 
     fn push_byte(&mut self, ram: &mut [u8], b: u8) {
         ram[(0x0100 + self.reg_s as u16) as usize] = b;
-        self.reg_s -= 1;
+        self.reg_s = self.reg_s.wrapping_sub(1);
     }
 
     fn pull_byte(&mut self, ram: &[u8]) -> u8 {
-        self.reg_s += 1;
+        self.reg_s = self.reg_s.wrapping_add(1);
         return ram[(0x0100 + self.reg_s as u16) as usize];
     }
 
