@@ -1,14 +1,14 @@
 // Ricoh 2A03 information (MOS 6502 instruction set)
 
 pub mod flags {
-    // TODO: use the correct bits
     pub const C: u8 = 0x01; // Carry
     pub const Z: u8 = 0x02; // Zero
     pub const I: u8 = 0x04; // Interrupt disable
-                            // No D flag
-    pub const B: u8 = 0x08; // Break command
-    pub const V: u8 = 0x10; // Overflow
-    pub const N: u8 = 0x20; // Negative
+                            // No D flag in RP2A03
+    pub const B: u8 = 0x10; // Break command
+                            // No bit 5 (always true)
+    pub const V: u8 = 0x40; // Overflow
+    pub const N: u8 = 0x80; // Negative
 }
 
 #[derive(Debug, Clone, Copy)]

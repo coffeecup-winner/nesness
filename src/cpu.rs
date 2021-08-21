@@ -1,4 +1,4 @@
-use crate::rp2a03::{info, AddressingMode, Instruction};
+use crate::rp2a03::{flags, info, AddressingMode, Instruction};
 
 #[derive(Default, Debug)]
 pub struct CPU {
@@ -7,6 +7,7 @@ pub struct CPU {
     pub reg_a: u8,
     pub reg_x: u8,
     pub reg_y: u8,
+    pub reg_s: u8,
     // Flags
     pub flag_carry: bool,
     pub flag_zero: bool,
@@ -52,7 +53,10 @@ impl<'a> AddressedByteMut<'a> {
 #[allow(dead_code)]
 impl CPU {
     pub fn new() -> Self {
-        Self::default()
+        CPU {
+            reg_s: 0xfd, // Stack is decremented 3 times on reset
+            ..Self::default()
+        }
     }
 
     pub fn run_one(&mut self, ram: &mut [u8]) -> u8 {
@@ -150,12 +154,61 @@ impl CPU {
             }
 
             // ===== Stack operations =====
-            Instruction::TSX => todo!(),
-            Instruction::TXS => todo!(),
-            Instruction::PHA => todo!(),
-            Instruction::PHP => todo!(),
-            Instruction::PLA => todo!(),
-            Instruction::PLP => todo!(),
+            Instruction::TSX => {
+                self.reg_x = self.reg_s;
+                self.update_zn_flags(self.reg_x);
+                0
+            }
+            Instruction::TXS => {
+                self.reg_s = self.reg_x;
+                0
+            }
+            Instruction::PHA => {
+                ram[(0x0100 + self.reg_s as u16) as usize] = self.reg_a;
+                self.reg_s -= 1;
+                0
+            }
+            Instruction::PHP => {
+                let mut p = 0x20; // Bit 5 is always set
+                if self.flag_carry {
+                    p |= flags::C;
+                }
+                if self.flag_zero {
+                    p |= flags::Z;
+                }
+                if self.flag_interrupt_disable {
+                    p |= flags::I;
+                }
+                if self.flag_break {
+                    p |= flags::B;
+                }
+                if self.flag_overflow {
+                    p |= flags::V;
+                }
+                if self.flag_negative {
+                    p |= flags::N;
+                }
+                ram[(0x0100 + self.reg_s as u16) as usize] = p;
+                self.reg_s -= 1;
+                0
+            }
+            Instruction::PLA => {
+                self.reg_s += 1;
+                self.reg_a = ram[(0x0100 + self.reg_s as u16) as usize];
+                self.update_zn_flags(self.reg_a);
+                0
+            }
+            Instruction::PLP => {
+                self.reg_s += 1;
+                let p = ram[(0x0100 + self.reg_s as u16) as usize];
+                self.flag_carry = (p & flags::C) != 0;
+                self.flag_zero = (p & flags::Z) != 0;
+                self.flag_interrupt_disable = (p & flags::I) != 0;
+                self.flag_break = (p & flags::B) != 0;
+                self.flag_overflow = (p & flags::V) != 0;
+                self.flag_negative = (p & flags::N) != 0;
+                0
+            }
 
             // ===== Logical =====
             Instruction::AND => {
