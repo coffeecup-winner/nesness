@@ -1,4 +1,4 @@
-use crate::rp2a03::{flags, info, AddressingMode, Instruction};
+use crate::cpu::rp2a03::{flags, info, AddressingMode, Instruction};
 
 #[derive(Default, Debug)]
 pub struct CPU {
@@ -834,7 +834,7 @@ impl CPU {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rp2a03::opcodes::*;
+    use crate::cpu::rp2a03::opcodes::*;
 
     #[test]
     fn test_adc_imm() {

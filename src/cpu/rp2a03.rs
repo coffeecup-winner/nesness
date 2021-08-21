@@ -127,15 +127,15 @@ macro_rules! opcodes {
             }
         }
         pub mod info {
-            use $crate::rp2a03::Info;
+            use $crate::cpu::rp2a03::Info;
             $(
                 pub const $opcode: Info = Info {
                     opcode: $value,
-                    insn: $crate::rp2a03::Instruction::$insn,
-                    addressing: $crate::rp2a03::AddressingMode::$addressing,
+                    insn: $crate::cpu::rp2a03::Instruction::$insn,
+                    addressing: $crate::cpu::rp2a03::AddressingMode::$addressing,
                     bytes: $bytes,
                     cycles: $cycles,
-                    affected_flags: 0x00 $(| $crate::rp2a03::flags::$affected_flags)*,
+                    affected_flags: 0x00 $(| $crate::cpu::rp2a03::flags::$affected_flags)*,
                     name: stringify!($opcode),
                 };
             )*
@@ -146,8 +146,8 @@ macro_rules! opcodes {
                     for i in 0..0xffu8 {
                         result.push(Info {
                             opcode: i,
-                            insn: $crate::rp2a03::Instruction::ILL,
-                            addressing: $crate::rp2a03::AddressingMode::Implicit,
+                            insn: $crate::cpu::rp2a03::Instruction::ILL,
+                            addressing: $crate::cpu::rp2a03::AddressingMode::Implicit,
                             bytes: 0,
                             cycles: 0,
                             affected_flags: 0,
