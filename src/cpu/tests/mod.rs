@@ -1,5 +1,6 @@
 mod branches;
 mod inc_dec;
+mod jumps;
 mod load_store;
 mod logical;
 mod reg_transfers;

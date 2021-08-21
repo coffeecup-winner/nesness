@@ -445,7 +445,7 @@ impl CPU {
             }
             Instruction::RTS => {
                 let mut return_addr = self.pull_addr(ram);
-                return_addr += 1;
+                return_addr = return_addr.wrapping_add(1);
                 self.pc = return_addr;
                 0
             }
