@@ -1,3 +1,4 @@
+mod branches;
 mod inc_dec;
 mod load_store;
 mod reg_transfers;

@@ -441,6 +441,7 @@ impl CPU {
             // ===== Branches =====
             Instruction::BCC => {
                 if self.flag_carry {
+                    self.get_next_byte(ram); // Advance past offset
                     0
                 } else {
                     let AddressedByte {
@@ -458,6 +459,7 @@ impl CPU {
             }
             Instruction::BCS => {
                 if !self.flag_carry {
+                    self.get_next_byte(ram); // Advance past offset
                     0
                 } else {
                     let AddressedByte {
@@ -475,6 +477,7 @@ impl CPU {
             }
             Instruction::BEQ => {
                 if !self.flag_zero {
+                    self.get_next_byte(ram); // Advance past offset
                     0
                 } else {
                     let AddressedByte {
@@ -492,6 +495,7 @@ impl CPU {
             }
             Instruction::BMI => {
                 if !self.flag_negative {
+                    self.get_next_byte(ram); // Advance past offset
                     0
                 } else {
                     let AddressedByte {
@@ -509,6 +513,7 @@ impl CPU {
             }
             Instruction::BNE => {
                 if self.flag_zero {
+                    self.get_next_byte(ram); // Advance past offset
                     0
                 } else {
                     let AddressedByte {
@@ -526,6 +531,7 @@ impl CPU {
             }
             Instruction::BPL => {
                 if self.flag_negative {
+                    self.get_next_byte(ram); // Advance past offset
                     0
                 } else {
                     let AddressedByte {
@@ -543,6 +549,7 @@ impl CPU {
             }
             Instruction::BVC => {
                 if self.flag_overflow {
+                    self.get_next_byte(ram); // Advance past offset
                     0
                 } else {
                     let AddressedByte {
@@ -560,6 +567,7 @@ impl CPU {
             }
             Instruction::BVS => {
                 if !self.flag_overflow {
+                    self.get_next_byte(ram); // Advance past offset
                     0
                 } else {
                     let AddressedByte {
