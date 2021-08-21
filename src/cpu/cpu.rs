@@ -151,7 +151,7 @@ impl CPU {
                 0
             }
             Instruction::TYA => {
-                self.reg_a = self.reg_x;
+                self.reg_a = self.reg_y;
                 self.update_zn_flags(self.reg_a);
                 0
             }

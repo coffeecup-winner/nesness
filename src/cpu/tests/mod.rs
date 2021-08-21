@@ -1,4 +1,5 @@
 mod load_store;
+mod reg_transfers;
 mod status_flags;
 
 // These exports are used by submodules
