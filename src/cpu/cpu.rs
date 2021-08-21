@@ -2,12 +2,13 @@ use crate::cpu::rp2a03::{flags, info, AddressingMode, Instruction};
 
 #[derive(Default, Debug)]
 pub struct CPU {
-    pub pc: u16,
     // Registers
+    pub pc: u16,
     pub reg_a: u8,
     pub reg_x: u8,
     pub reg_y: u8,
     pub reg_s: u8,
+
     // Flags
     pub flag_carry: bool,
     pub flag_zero: bool,
@@ -15,6 +16,10 @@ pub struct CPU {
     pub flag_break: bool,
     pub flag_overflow: bool,
     pub flag_negative: bool,
+    
+    // Data for testing
+    #[cfg(test)]
+    __saved_flags: u8,
 }
 
 struct AddressedByte {
@@ -64,6 +69,8 @@ impl CPU {
     pub fn run_one(&mut self, ram: &mut [u8]) -> u8 {
         let opcode = self.get_next_byte(ram);
         let info = &info::INFO[opcode as usize];
+        #[cfg(test)]
+        self.__save_flags();
         let extra_cycles = match info.insn {
             // ===== Load/store operations =====
             Instruction::LDA => {
@@ -112,24 +119,18 @@ impl CPU {
                 let a = self.reg_a;
                 let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
                 *m = a;
-                let result = *m;
-                self.update_zn_flags(result);
                 0
             }
             Instruction::STX => {
                 let x = self.reg_x;
                 let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
                 *m = x;
-                let result = *m;
-                self.update_zn_flags(result);
                 0
             }
             Instruction::STY => {
                 let y = self.reg_y;
                 let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
                 *m = y;
-                let result = *m;
-                self.update_zn_flags(result);
                 0
             }
 
@@ -617,6 +618,8 @@ impl CPU {
             // ===== Illegal =====
             Instruction::ILL => panic!("Illegal instruction"),
         };
+        #[cfg(test)]
+        self.__test_flags(info.affected_flags);
         info.cycles + extra_cycles
     }
 
@@ -833,5 +836,17 @@ impl CPU {
         let mut result = ram[addr as usize] as u16;
         result |= (ram[addr as usize + 1] as u16) << 8;
         result
+    }
+
+    #[cfg(test)]
+    fn __save_flags(&mut self) {
+        self.__saved_flags = self.pack_flags();
+    }
+
+    #[cfg(test)]
+    fn __test_flags(&self, allowed_flags: u8) {
+        let current_flags = self.pack_flags();
+        let change = self.__saved_flags ^ current_flags;
+        assert_eq!(0, change & !allowed_flags, "Unexpected flags have been modified");
     }
 }
