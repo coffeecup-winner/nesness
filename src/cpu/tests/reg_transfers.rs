@@ -7,7 +7,7 @@ fn test_tax() {
         let (mut cpu, mut ram) = test_cpu(&vec![TAX_IMP, i]);
         cpu.reg_a = i;
         cpu.reg_x = !i;
-        cpu.run_one(&mut ram);
+        assert_eq!(2, cpu.run_one(&mut ram));
         assert_eq!(i, cpu.reg_x);
         assert_zn!(cpu, i == 0, i >= 0x80);
     }
@@ -20,7 +20,7 @@ fn test_tay() {
         let (mut cpu, mut ram) = test_cpu(&vec![TAY_IMP, i]);
         cpu.reg_a = i;
         cpu.reg_y = !i;
-        cpu.run_one(&mut ram);
+        assert_eq!(2, cpu.run_one(&mut ram));
         assert_eq!(i, cpu.reg_y);
         assert_zn!(cpu, i == 0, i >= 0x80);
     }
@@ -33,7 +33,7 @@ fn test_txa() {
         let (mut cpu, mut ram) = test_cpu(&vec![TXA_IMP, i]);
         cpu.reg_x = i;
         cpu.reg_a = !i;
-        cpu.run_one(&mut ram);
+        assert_eq!(2, cpu.run_one(&mut ram));
         assert_eq!(i, cpu.reg_a);
         assert_zn!(cpu, i == 0, i >= 0x80);
     }
@@ -46,7 +46,7 @@ fn test_tya() {
         let (mut cpu, mut ram) = test_cpu(&vec![TYA_IMP, i]);
         cpu.reg_y = i;
         cpu.reg_a = !i;
-        cpu.run_one(&mut ram);
+        assert_eq!(2, cpu.run_one(&mut ram));
         assert_eq!(i, cpu.reg_a);
         assert_zn!(cpu, i == 0, i >= 0x80);
     }
