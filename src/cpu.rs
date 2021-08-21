@@ -168,25 +168,7 @@ impl CPU {
                 0
             }
             Instruction::PHP => {
-                let mut p = 0x20; // Bit 5 is always set
-                if self.flag_carry {
-                    p |= flags::C;
-                }
-                if self.flag_zero {
-                    p |= flags::Z;
-                }
-                if self.flag_interrupt_disable {
-                    p |= flags::I;
-                }
-                if self.flag_break {
-                    p |= flags::B;
-                }
-                if self.flag_overflow {
-                    p |= flags::V;
-                }
-                if self.flag_negative {
-                    p |= flags::N;
-                }
+                let p = self.pack_flags();
                 self.push_byte(ram, p);
                 0
             }
@@ -197,12 +179,7 @@ impl CPU {
             }
             Instruction::PLP => {
                 let p = self.pull_byte(ram);
-                self.flag_carry = (p & flags::C) != 0;
-                self.flag_zero = (p & flags::Z) != 0;
-                self.flag_interrupt_disable = (p & flags::I) != 0;
-                self.flag_break = (p & flags::B) != 0;
-                self.flag_overflow = (p & flags::V) != 0;
-                self.flag_negative = (p & flags::N) != 0;
+                self.unpack_flags(p);
                 0
             }
 
@@ -447,14 +424,12 @@ impl CPU {
             Instruction::JSR => {
                 let addr = self.get_addressed_byte(info.addressing, ram).addr;
                 let return_addr = self.pc - 1;
-                self.push_byte(ram, (return_addr >> 8) as u8);
-                self.push_byte(ram, return_addr as u8);
+                self.push_addr(ram, return_addr);
                 self.pc = addr;
                 0
             }
             Instruction::RTS => {
-                let mut return_addr = self.pull_byte(ram) as u16;
-                return_addr |= (self.pull_byte(ram) as u16) << 8;
+                let mut return_addr = self.pull_addr(ram);
                 return_addr += 1;
                 self.pc = return_addr;
                 0
@@ -621,9 +596,23 @@ impl CPU {
             }
 
             // ===== System functions =====
-            Instruction::BRK => todo!(),
+            Instruction::BRK => {
+                self.push_addr(ram, self.pc);
+                let p = self.pack_flags();
+                self.push_byte(ram, p);
+                let mut addr = ram[0xfffe] as u16;
+                addr |= (ram[0xffff] as u16) << 8;
+                self.pc = addr;
+                self.flag_break = true;
+                0
+            }
             Instruction::NOP => 0,
-            Instruction::RTI => todo!(),
+            Instruction::RTI => {
+                let p = self.pull_byte(ram);
+                self.unpack_flags(p);
+                self.pc = self.pull_addr(ram);
+                0
+            }
 
             // ===== Illegal =====
             Instruction::ILL => panic!("Illegal instruction"),
@@ -634,6 +623,38 @@ impl CPU {
     fn update_zn_flags(&mut self, val: u8) {
         self.flag_zero = val == 0;
         self.flag_negative = (val & 0x80) != 0;
+    }
+
+    fn pack_flags(&self) -> u8 {
+        let mut p = 0x20; // Bit 5 is always set
+        if self.flag_carry {
+            p |= flags::C;
+        }
+        if self.flag_zero {
+            p |= flags::Z;
+        }
+        if self.flag_interrupt_disable {
+            p |= flags::I;
+        }
+        if self.flag_break {
+            p |= flags::B;
+        }
+        if self.flag_overflow {
+            p |= flags::V;
+        }
+        if self.flag_negative {
+            p |= flags::N;
+        }
+        p
+    }
+
+    fn unpack_flags(&mut self, p: u8) {
+        self.flag_carry = (p & flags::C) != 0;
+        self.flag_zero = (p & flags::Z) != 0;
+        self.flag_interrupt_disable = (p & flags::I) != 0;
+        self.flag_break = (p & flags::B) != 0;
+        self.flag_overflow = (p & flags::V) != 0;
+        self.flag_negative = (p & flags::N) != 0;
     }
 
     fn get_addressed_byte(&mut self, mode: AddressingMode, ram: &mut [u8]) -> AddressedByte {
@@ -802,6 +823,17 @@ impl CPU {
     fn pull_byte(&mut self, ram: &[u8]) -> u8 {
         self.reg_s += 1;
         return ram[(0x0100 + self.reg_s as u16) as usize];
+    }
+
+    fn push_addr(&mut self, ram: &mut [u8], addr: u16) {
+        self.push_byte(ram, (addr >> 8) as u8);
+        self.push_byte(ram, addr as u8);
+    }
+
+    fn pull_addr(&mut self, ram: &[u8]) -> u16 {
+        let mut addr = self.pull_byte(ram) as u16;
+        addr |= (self.pull_byte(ram) as u16) << 8;
+        addr
     }
 }
 
