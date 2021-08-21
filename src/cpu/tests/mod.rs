@@ -2,6 +2,7 @@ mod branches;
 mod inc_dec;
 mod load_store;
 mod reg_transfers;
+mod shifts;
 mod status_flags;
 
 // These exports are used by submodules
