@@ -7,6 +7,7 @@ mod reg_transfers;
 mod shifts;
 mod stack;
 mod status_flags;
+mod system;
 
 // These exports are used by submodules
 use super::*;

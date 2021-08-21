@@ -1,6 +1,6 @@
 use crate::cpu::rp2a03::{flags, info, AddressingMode, Instruction};
 
-#[derive(Default, Debug)]
+#[derive(Debug, Default, Clone)]
 pub struct CPU {
     // Registers
     pub pc: u16,
