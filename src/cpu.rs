@@ -475,9 +475,30 @@ impl CPU {
                 self.flag_interrupt_disable = true;
                 0
             }
-            Instruction::STA => todo!(),
-            Instruction::STX => todo!(),
-            Instruction::STY => todo!(),
+            Instruction::STA => {
+                let a = self.reg_a;
+                let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
+                *m = a;
+                let result = *m;
+                self.update_zn_flags(result);
+                0
+            }
+            Instruction::STX => {
+                let x = self.reg_x;
+                let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
+                *m = x;
+                let result = *m;
+                self.update_zn_flags(result);
+                0
+            }
+            Instruction::STY => {
+                let y = self.reg_y;
+                let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
+                *m = y;
+                let result = *m;
+                self.update_zn_flags(result);
+                0
+            }
             Instruction::TAX => {
                 self.reg_x = self.reg_a;
                 self.update_zn_flags(self.reg_x);
