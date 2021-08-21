@@ -21,6 +21,16 @@ pub struct CPU {
     #[cfg(test)]
     __insn_bytes_read: u8,
     #[cfg(test)]
+    __saved_a: u8,
+    #[cfg(test)]
+    __saved_x: u8,
+    #[cfg(test)]
+    __saved_y: u8,
+    #[cfg(test)]
+    __saved_pc: u16,
+    #[cfg(test)]
+    __saved_s: u8,
+    #[cfg(test)]
     __saved_flags: u8,
 }
 
@@ -629,7 +639,7 @@ impl CPU {
             Instruction::ILL => panic!("Illegal instruction"),
         };
         #[cfg(test)]
-        self.__run_checks(info.bytes, info.affected_flags);
+        self.__run_checks(info.bytes, info.affected_units, info.affected_flags);
         info.cycles + extra_cycles
     }
 
@@ -859,12 +869,35 @@ impl CPU {
     #[cfg(test)]
     fn __init_checks(&mut self) {
         self.__insn_bytes_read = 0;
+        self.__saved_a = self.reg_a;
+        self.__saved_x = self.reg_x;
+        self.__saved_y = self.reg_y;
+        self.__saved_pc = self.pc;
+        self.__saved_s = self.reg_s;
         self.__saved_flags = self.pack_flags();
     }
 
     #[cfg(test)]
-    fn __run_checks(&self, bytes: u8, allowed_flags: u8) {
+    fn __run_checks(&self, bytes: u8, allowed_units: u8, allowed_flags: u8) {
         assert_eq!(bytes, self.__insn_bytes_read);
+
+        use crate::cpu::rp2a03::units;
+        if (allowed_units & units::A) == 0 {
+            assert_eq!(self.__saved_a, self.reg_a);
+        }
+        if (allowed_units & units::X) == 0 {
+            assert_eq!(self.__saved_x, self.reg_x);
+        }
+        if (allowed_units & units::Y) == 0 {
+            assert_eq!(self.__saved_y, self.reg_y);
+        }
+        if (allowed_units & units::P) == 0 {
+            assert_eq!(self.__saved_pc + bytes as u16, self.pc);
+        }
+        if (allowed_units & units::S) == 0 {
+            assert_eq!(self.__saved_s, self.reg_s);
+        }
+        // TODO: Add a check for units::M
 
         let current_flags = self.pack_flags();
         let change = self.__saved_flags ^ current_flags;
