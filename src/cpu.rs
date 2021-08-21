@@ -16,7 +16,6 @@ pub struct CPU {
     pub flag_negative: bool,
 }
 
-#[allow(dead_code)]
 struct AddressedByte {
     pub addr: u16,
     pub prefetched_byte: u8,
@@ -60,7 +59,162 @@ impl CPU {
         let opcode = self.get_next_byte(ram);
         let info = &info::INFO[opcode as usize];
         let extra_cycles = match info.insn {
-            Instruction::ILL => panic!("Illegal instruction"),
+            // ===== Load/store operations =====
+            Instruction::LDA => {
+                let AddressedByte {
+                    prefetched_byte: m,
+                    has_crossed_page,
+                    ..
+                } = self.get_addressed_byte(info.addressing, ram);
+                self.reg_a = m;
+                self.update_zn_flags(self.reg_a);
+                if has_crossed_page {
+                    1
+                } else {
+                    0
+                }
+            }
+            Instruction::LDX => {
+                let AddressedByte {
+                    prefetched_byte: m,
+                    has_crossed_page,
+                    ..
+                } = self.get_addressed_byte(info.addressing, ram);
+                self.reg_x = m;
+                self.update_zn_flags(self.reg_x);
+                if has_crossed_page {
+                    1
+                } else {
+                    0
+                }
+            }
+            Instruction::LDY => {
+                let AddressedByte {
+                    prefetched_byte: m,
+                    has_crossed_page,
+                    ..
+                } = self.get_addressed_byte(info.addressing, ram);
+                self.reg_y = m;
+                self.update_zn_flags(self.reg_y);
+                if has_crossed_page {
+                    1
+                } else {
+                    0
+                }
+            }
+            Instruction::STA => {
+                let a = self.reg_a;
+                let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
+                *m = a;
+                let result = *m;
+                self.update_zn_flags(result);
+                0
+            }
+            Instruction::STX => {
+                let x = self.reg_x;
+                let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
+                *m = x;
+                let result = *m;
+                self.update_zn_flags(result);
+                0
+            }
+            Instruction::STY => {
+                let y = self.reg_y;
+                let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
+                *m = y;
+                let result = *m;
+                self.update_zn_flags(result);
+                0
+            }
+
+            // ===== Register transfers =====
+            Instruction::TAX => {
+                self.reg_x = self.reg_a;
+                self.update_zn_flags(self.reg_x);
+                0
+            }
+            Instruction::TAY => {
+                self.reg_y = self.reg_a;
+                self.update_zn_flags(self.reg_y);
+                0
+            }
+            Instruction::TXA => {
+                self.reg_a = self.reg_x;
+                self.update_zn_flags(self.reg_a);
+                0
+            }
+            Instruction::TYA => {
+                self.reg_a = self.reg_x;
+                self.update_zn_flags(self.reg_a);
+                0
+            }
+
+            // ===== Stack operations =====
+            Instruction::TSX => todo!(),
+            Instruction::TXS => todo!(),
+            Instruction::PHA => todo!(),
+            Instruction::PHP => todo!(),
+            Instruction::PLA => todo!(),
+            Instruction::PLP => todo!(),
+
+            // ===== Logical =====
+            Instruction::AND => {
+                let a = self.reg_a;
+                let AddressedByte {
+                    prefetched_byte: m,
+                    has_crossed_page,
+                    ..
+                } = self.get_addressed_byte(info.addressing, ram);
+                self.reg_a = a & m;
+                self.update_zn_flags(self.reg_a);
+                if has_crossed_page {
+                    1
+                } else {
+                    0
+                }
+            }
+            Instruction::EOR => {
+                let a = self.reg_a;
+                let AddressedByte {
+                    prefetched_byte: m,
+                    has_crossed_page,
+                    ..
+                } = self.get_addressed_byte(info.addressing, ram);
+                self.reg_a = a ^ m;
+                self.update_zn_flags(self.reg_a);
+                if has_crossed_page {
+                    1
+                } else {
+                    0
+                }
+            }
+            Instruction::ORA => {
+                let a = self.reg_a;
+                let AddressedByte {
+                    prefetched_byte: m,
+                    has_crossed_page,
+                    ..
+                } = self.get_addressed_byte(info.addressing, ram);
+                self.reg_a = a | m;
+                self.update_zn_flags(self.reg_a);
+                if has_crossed_page {
+                    1
+                } else {
+                    0
+                }
+            }
+            Instruction::BIT => {
+                let a = self.reg_a;
+                let m = self
+                    .get_addressed_byte(info.addressing, ram)
+                    .prefetched_byte;
+                let result = a & m;
+                self.update_zn_flags(result);
+                self.flag_overflow = (result & 0x40) != 0;
+                0
+            }
+
+            // ===== Arithmetic =====
             Instruction::ADC => {
                 let a = self.reg_a;
                 let AddressedByte {
@@ -84,21 +238,78 @@ impl CPU {
                     0
                 }
             }
-            Instruction::AND => {
+            Instruction::SBC => todo!(),
+            Instruction::CMP => {
                 let a = self.reg_a;
                 let AddressedByte {
                     prefetched_byte: m,
                     has_crossed_page,
                     ..
                 } = self.get_addressed_byte(info.addressing, ram);
-                self.reg_a = a & m;
-                self.update_zn_flags(self.reg_a);
+                self.update_zn_flags(a - m);
+                self.flag_carry = a >= m;
                 if has_crossed_page {
                     1
                 } else {
                     0
                 }
             }
+            Instruction::CPX => {
+                let x = self.reg_x;
+                let m = self
+                    .get_addressed_byte(info.addressing, ram)
+                    .prefetched_byte;
+                self.update_zn_flags(x - m);
+                self.flag_carry = x >= m;
+                0
+            }
+            Instruction::CPY => {
+                let y = self.reg_y;
+                let m = self
+                    .get_addressed_byte(info.addressing, ram)
+                    .prefetched_byte;
+                self.update_zn_flags(y - m);
+                self.flag_carry = y >= m;
+                0
+            }
+
+            // ===== Increments/decrements =====
+            Instruction::INC => {
+                let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
+                *m += 1;
+                let result = *m;
+                self.update_zn_flags(result);
+                0
+            }
+            Instruction::INX => {
+                self.reg_x += 1;
+                self.update_zn_flags(self.reg_x);
+                0
+            }
+            Instruction::INY => {
+                self.reg_y += 1;
+                self.update_zn_flags(self.reg_y);
+                0
+            }
+            Instruction::DEC => {
+                let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
+                *m -= 1;
+                let result = *m;
+                self.update_zn_flags(result);
+                0
+            }
+            Instruction::DEX => {
+                self.reg_x -= 1;
+                self.update_zn_flags(self.reg_x);
+                0
+            }
+            Instruction::DEY => {
+                self.reg_y -= 1;
+                self.update_zn_flags(self.reg_y);
+                0
+            }
+
+            // ===== Shifts =====
             Instruction::ASL => {
                 let AddressedByteMut {
                     prefetched_byte: prev,
@@ -111,6 +322,61 @@ impl CPU {
                 self.flag_carry = (prev & 0x80) != 0;
                 0
             }
+            Instruction::LSR => {
+                let AddressedByteMut {
+                    prefetched_byte: prev,
+                    byte: v,
+                    ..
+                } = self.get_addressed_byte_mut(info.addressing, ram);
+                *v >>= 1;
+                let result = *v;
+                self.update_zn_flags(result);
+                self.flag_carry = (prev & 0x01) != 0;
+                0
+            }
+            Instruction::ROL => {
+                let carry = self.flag_carry;
+                let AddressedByteMut {
+                    prefetched_byte: prev,
+                    byte: v,
+                    ..
+                } = self.get_addressed_byte_mut(info.addressing, ram);
+                *v <<= 1;
+                if carry {
+                    *v |= 0x01;
+                }
+                let result = *v;
+                self.update_zn_flags(result);
+                self.flag_carry = (prev & 0x80) != 0;
+                0
+            }
+            Instruction::ROR => {
+                let carry = self.flag_carry;
+                let AddressedByteMut {
+                    prefetched_byte: prev,
+                    byte: v,
+                    ..
+                } = self.get_addressed_byte_mut(info.addressing, ram);
+                *v >>= 1;
+                if carry {
+                    *v |= 0x80;
+                }
+                let result = *v;
+                self.update_zn_flags(result);
+                self.flag_carry = (prev & 0x01) != 0;
+                0
+            }
+
+            // ===== Jumps/calls =====
+            Instruction::JMP => {
+                let addr = self.get_addressed_byte(info.addressing, ram).addr;
+                self.pc = addr;
+                0
+            }
+            Instruction::JSR => todo!(),
+            Instruction::RTS => todo!(),
+
+            // ===== Branches =====
             Instruction::BCC => {
                 if self.flag_carry {
                     0
@@ -161,16 +427,6 @@ impl CPU {
                         1
                     }
                 }
-            }
-            Instruction::BIT => {
-                let a = self.reg_a;
-                let m = self
-                    .get_addressed_byte(info.addressing, ram)
-                    .prefetched_byte;
-                let result = a & m;
-                self.update_zn_flags(result);
-                self.flag_overflow = (result & 0x40) != 0;
-                0
             }
             Instruction::BMI => {
                 if !self.flag_negative {
@@ -223,7 +479,6 @@ impl CPU {
                     }
                 }
             }
-            Instruction::BRK => todo!(),
             Instruction::BVC => {
                 if self.flag_overflow {
                     0
@@ -258,6 +513,8 @@ impl CPU {
                     }
                 }
             }
+
+            // ===== Status flag changes =====
             Instruction::CLC => {
                 self.flag_carry = false;
                 0
@@ -270,203 +527,6 @@ impl CPU {
                 self.flag_overflow = false;
                 0
             }
-            Instruction::CMP => {
-                let a = self.reg_a;
-                let AddressedByte {
-                    prefetched_byte: m,
-                    has_crossed_page,
-                    ..
-                } = self.get_addressed_byte(info.addressing, ram);
-                self.update_zn_flags(a - m);
-                self.flag_carry = a >= m;
-                if has_crossed_page {
-                    1
-                } else {
-                    0
-                }
-            }
-            Instruction::CPX => {
-                let x = self.reg_x;
-                let m = self
-                    .get_addressed_byte(info.addressing, ram)
-                    .prefetched_byte;
-                self.update_zn_flags(x - m);
-                self.flag_carry = x >= m;
-                0
-            }
-            Instruction::CPY => {
-                let y = self.reg_y;
-                let m = self
-                    .get_addressed_byte(info.addressing, ram)
-                    .prefetched_byte;
-                self.update_zn_flags(y - m);
-                self.flag_carry = y >= m;
-                0
-            }
-            Instruction::DEC => {
-                let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
-                *m -= 1;
-                let result = *m;
-                self.update_zn_flags(result);
-                0
-            }
-            Instruction::DEX => {
-                self.reg_x -= 1;
-                self.update_zn_flags(self.reg_x);
-                0
-            }
-            Instruction::DEY => {
-                self.reg_y -= 1;
-                self.update_zn_flags(self.reg_y);
-                0
-            }
-            Instruction::EOR => {
-                let a = self.reg_a;
-                let AddressedByte {
-                    prefetched_byte: m,
-                    has_crossed_page,
-                    ..
-                } = self.get_addressed_byte(info.addressing, ram);
-                self.reg_a = a ^ m;
-                self.update_zn_flags(self.reg_a);
-                if has_crossed_page {
-                    1
-                } else {
-                    0
-                }
-            }
-            Instruction::INC => {
-                let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
-                *m += 1;
-                let result = *m;
-                self.update_zn_flags(result);
-                0
-            }
-            Instruction::INX => {
-                self.reg_x += 1;
-                self.update_zn_flags(self.reg_x);
-                0
-            }
-            Instruction::INY => {
-                self.reg_y += 1;
-                self.update_zn_flags(self.reg_y);
-                0
-            }
-            Instruction::JMP => {
-                let addr = self.get_addressed_byte(info.addressing, ram).addr;
-                self.pc = addr;
-                0
-            }
-            Instruction::JSR => todo!(),
-            Instruction::LDA => {
-                let AddressedByte {
-                    prefetched_byte: m,
-                    has_crossed_page,
-                    ..
-                } = self.get_addressed_byte(info.addressing, ram);
-                self.reg_a = m;
-                self.update_zn_flags(self.reg_a);
-                if has_crossed_page {
-                    1
-                } else {
-                    0
-                }
-            }
-            Instruction::LDX => {
-                let AddressedByte {
-                    prefetched_byte: m,
-                    has_crossed_page,
-                    ..
-                } = self.get_addressed_byte(info.addressing, ram);
-                self.reg_x = m;
-                self.update_zn_flags(self.reg_x);
-                if has_crossed_page {
-                    1
-                } else {
-                    0
-                }
-            }
-            Instruction::LDY => {
-                let AddressedByte {
-                    prefetched_byte: m,
-                    has_crossed_page,
-                    ..
-                } = self.get_addressed_byte(info.addressing, ram);
-                self.reg_y = m;
-                self.update_zn_flags(self.reg_y);
-                if has_crossed_page {
-                    1
-                } else {
-                    0
-                }
-            }
-            Instruction::LSR => {
-                let AddressedByteMut {
-                    prefetched_byte: prev,
-                    byte: v,
-                    ..
-                } = self.get_addressed_byte_mut(info.addressing, ram);
-                *v >>= 1;
-                let result = *v;
-                self.update_zn_flags(result);
-                self.flag_carry = (prev & 0x01) != 0;
-                0
-            }
-            Instruction::NOP => 0,
-            Instruction::ORA => {
-                let a = self.reg_a;
-                let AddressedByte {
-                    prefetched_byte: m,
-                    has_crossed_page,
-                    ..
-                } = self.get_addressed_byte(info.addressing, ram);
-                self.reg_a = a | m;
-                self.update_zn_flags(self.reg_a);
-                if has_crossed_page {
-                    1
-                } else {
-                    0
-                }
-            }
-            Instruction::PHA => todo!(),
-            Instruction::PHP => todo!(),
-            Instruction::PLA => todo!(),
-            Instruction::PLP => todo!(),
-            Instruction::ROL => {
-                let carry = self.flag_carry;
-                let AddressedByteMut {
-                    prefetched_byte: prev,
-                    byte: v,
-                    ..
-                } = self.get_addressed_byte_mut(info.addressing, ram);
-                *v <<= 1;
-                if carry {
-                    *v |= 0x01;
-                }
-                let result = *v;
-                self.update_zn_flags(result);
-                self.flag_carry = (prev & 0x80) != 0;
-                0
-            }
-            Instruction::ROR => {
-                let carry = self.flag_carry;
-                let AddressedByteMut {
-                    prefetched_byte: prev,
-                    byte: v,
-                    ..
-                } = self.get_addressed_byte_mut(info.addressing, ram);
-                *v >>= 1;
-                if carry {
-                    *v |= 0x80;
-                }
-                let result = *v;
-                self.update_zn_flags(result);
-                self.flag_carry = (prev & 0x01) != 0;
-                0
-            }
-            Instruction::RTI => todo!(),
-            Instruction::RTS => todo!(),
-            Instruction::SBC => todo!(),
             Instruction::SEC => {
                 self.flag_carry = true;
                 0
@@ -475,52 +535,14 @@ impl CPU {
                 self.flag_interrupt_disable = true;
                 0
             }
-            Instruction::STA => {
-                let a = self.reg_a;
-                let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
-                *m = a;
-                let result = *m;
-                self.update_zn_flags(result);
-                0
-            }
-            Instruction::STX => {
-                let x = self.reg_x;
-                let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
-                *m = x;
-                let result = *m;
-                self.update_zn_flags(result);
-                0
-            }
-            Instruction::STY => {
-                let y = self.reg_y;
-                let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
-                *m = y;
-                let result = *m;
-                self.update_zn_flags(result);
-                0
-            }
-            Instruction::TAX => {
-                self.reg_x = self.reg_a;
-                self.update_zn_flags(self.reg_x);
-                0
-            }
-            Instruction::TAY => {
-                self.reg_y = self.reg_a;
-                self.update_zn_flags(self.reg_y);
-                0
-            }
-            Instruction::TSX => todo!(),
-            Instruction::TXA => {
-                self.reg_a = self.reg_x;
-                self.update_zn_flags(self.reg_a);
-                0
-            }
-            Instruction::TXS => todo!(),
-            Instruction::TYA => {
-                self.reg_a = self.reg_x;
-                self.update_zn_flags(self.reg_a);
-                0
-            }
+
+            // ===== System functions =====
+            Instruction::BRK => todo!(),
+            Instruction::NOP => 0,
+            Instruction::RTI => todo!(),
+
+            // ===== Illegal =====
+            Instruction::ILL => panic!("Illegal instruction"),
         };
         info.cycles + extra_cycles
     }
