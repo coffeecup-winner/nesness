@@ -327,35 +327,35 @@ impl CPU {
             // ===== Increments/decrements =====
             Instruction::INC => {
                 let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
-                *m += 1;
+                *m = m.wrapping_add(1);
                 let result = *m;
                 self.update_zn_flags(result);
                 0
             }
             Instruction::INX => {
-                self.reg_x += 1;
+                self.reg_x = self.reg_x.wrapping_add(1);
                 self.update_zn_flags(self.reg_x);
                 0
             }
             Instruction::INY => {
-                self.reg_y += 1;
+                self.reg_y = self.reg_y.wrapping_add(1);
                 self.update_zn_flags(self.reg_y);
                 0
             }
             Instruction::DEC => {
                 let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
-                *m -= 1;
+                *m = m.wrapping_sub(1);
                 let result = *m;
                 self.update_zn_flags(result);
                 0
             }
             Instruction::DEX => {
-                self.reg_x -= 1;
+                self.reg_x = self.reg_x.wrapping_sub(1);
                 self.update_zn_flags(self.reg_x);
                 0
             }
             Instruction::DEY => {
-                self.reg_y -= 1;
+                self.reg_y = self.reg_y.wrapping_sub(1);
                 self.update_zn_flags(self.reg_y);
                 0
             }
