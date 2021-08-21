@@ -50,10 +50,17 @@ impl<'a> AddressedByteMut<'a> {
 #[allow(dead_code)]
 impl CPU {
     pub fn new() -> Self {
-        CPU {
-            reg_s: 0xfd, // Stack is decremented 3 times on reset
-            ..Self::default()
-        }
+        Self::default()
+    }
+
+    pub fn reset(&mut self, ram: &[u8]) {
+        // Detailed in https://www.pagetable.com/?p=410
+        // Internals of BRK/IRQ/NMI/RESET on a MOS 6502 by Michael Steil
+        *self = Self::default();
+        self.reg_s = self.reg_s.wrapping_sub(3);
+        let mut addr = ram[0xfffc] as u16;
+        addr |= (ram[0xfffd] as u16) << 8;
+        self.pc = addr;
     }
 
     pub fn run_one(&mut self, ram: &mut [u8]) -> u8 {
@@ -828,19 +835,5 @@ impl CPU {
         let mut addr = self.pull_byte(ram) as u16;
         addr |= (self.pull_byte(ram) as u16) << 8;
         addr
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::cpu::rp2a03::opcodes::*;
-
-    #[test]
-    fn test_adc_imm() {
-        let mut ram = vec![ADC_IMM, 42];
-        let mut cpu = CPU::new();
-        cpu.run_one(&mut ram);
-        assert_eq!(42, cpu.reg_a);
     }
 }
