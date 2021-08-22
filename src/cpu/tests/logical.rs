@@ -5,10 +5,10 @@ fn test_and() {
     // Values/flags
     for mask in 0..=0xff {
         for i in 0..=0xff {
-            let (mut cpu, mut ram) = test_cpu(&vec![AND_IMM, mask]);
+            let (mut cpu, mut mem) = test_cpu(&vec![AND_IMM, mask]);
             cpu.reg_a = i;
             let expected = i & mask;
-            cpu.run_one(&mut ram);
+            cpu.run_one(&mut mem);
             assert_eq!(expected, cpu.reg_a);
             assert_zn!(cpu, expected == 0, expected >= 0x80);
         }
@@ -26,7 +26,7 @@ fn test_and() {
     let iny = 0x3456;
     let abs = 0x1234;
     let abs2 = 0x12f8;
-    let (mut cpu, mut ram) = test_cpu(&vec![
+    let (mut cpu, mut mem) = test_cpu(&vec![
         AND_IMM, v.rotate_left(0),
         AND_ZPG, zpg,
         AND_ZPX, zpg,
@@ -43,55 +43,55 @@ fn test_and() {
     ]);
     cpu.reg_x = x;
     cpu.reg_y = y;
-    ram[zpg as usize] = v.rotate_left(1);
-    ram[(zpg + x) as usize] = v.rotate_left(2);
-    ram[(zpg_inx + x) as usize] = lo(inx);
-    ram[(zpg_inx + x + 1) as usize] = hi(inx);
-    ram[zpg_iny as usize] = lo(iny);
-    ram[(zpg_iny + 1) as usize] = hi(iny);
-    ram[abs as usize] = v.rotate_left(3);
-    ram[(abs + x as u16) as usize] = v.rotate_left(4);
-    ram[(abs + y as u16) as usize] = v.rotate_left(5);
-    ram[inx as usize] = v.rotate_left(6);
-    ram[(iny + y as u16) as usize] = v.rotate_left(7);
-    ram[(abs2 + x as u16) as usize] = v.rotate_left(8);
-    ram[(abs2 + y as u16) as usize] = v.rotate_left(9);
-    ram[(iny + y2 as u16) as usize] = v.rotate_left(10);
+    mem[zpg as usize] = v.rotate_left(1);
+    mem[(zpg + x) as usize] = v.rotate_left(2);
+    mem[(zpg_inx + x) as usize] = lo(inx);
+    mem[(zpg_inx + x + 1) as usize] = hi(inx);
+    mem[zpg_iny as usize] = lo(iny);
+    mem[(zpg_iny + 1) as usize] = hi(iny);
+    mem[abs as usize] = v.rotate_left(3);
+    mem[(abs + x as u16) as usize] = v.rotate_left(4);
+    mem[(abs + y as u16) as usize] = v.rotate_left(5);
+    mem[inx as usize] = v.rotate_left(6);
+    mem[(iny + y as u16) as usize] = v.rotate_left(7);
+    mem[(abs2 + x as u16) as usize] = v.rotate_left(8);
+    mem[(abs2 + y as u16) as usize] = v.rotate_left(9);
+    mem[(iny + y2 as u16) as usize] = v.rotate_left(10);
 
     cpu.reg_a = 0xff;
-    assert_eq!(2, cpu.run_one(&mut ram));
+    assert_eq!(2, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(0), cpu.reg_a);
     cpu.reg_a = 0xff;
-    assert_eq!(3, cpu.run_one(&mut ram));
+    assert_eq!(3, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(1), cpu.reg_a);
     cpu.reg_a = 0xff;
-    assert_eq!(4, cpu.run_one(&mut ram));
+    assert_eq!(4, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(2), cpu.reg_a);
     cpu.reg_a = 0xff;
-    assert_eq!(4, cpu.run_one(&mut ram));
+    assert_eq!(4, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(3), cpu.reg_a);
     cpu.reg_a = 0xff;
-    assert_eq!(4, cpu.run_one(&mut ram));
+    assert_eq!(4, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(4), cpu.reg_a);
     cpu.reg_a = 0xff;
-    assert_eq!(4, cpu.run_one(&mut ram));
+    assert_eq!(4, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(5), cpu.reg_a);
     cpu.reg_a = 0xff;
-    assert_eq!(6, cpu.run_one(&mut ram));
+    assert_eq!(6, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(6), cpu.reg_a);
     cpu.reg_a = 0xff;
-    assert_eq!(5, cpu.run_one(&mut ram));
+    assert_eq!(5, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(7), cpu.reg_a);
 
     cpu.reg_a = 0xff;
-    assert_eq!(5, cpu.run_one(&mut ram));
+    assert_eq!(5, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(8), cpu.reg_a);
     cpu.reg_a = 0xff;
-    assert_eq!(5, cpu.run_one(&mut ram));
+    assert_eq!(5, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(9), cpu.reg_a);
     cpu.reg_y = y2;
     cpu.reg_a = 0xff;
-    assert_eq!(6, cpu.run_one(&mut ram));
+    assert_eq!(6, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(10), cpu.reg_a);
 }
 
@@ -100,10 +100,10 @@ fn test_eor() {
     // Values/flags
     for mask in 0..=0xff {
         for i in 0..=0xff {
-            let (mut cpu, mut ram) = test_cpu(&vec![EOR_IMM, mask]);
+            let (mut cpu, mut mem) = test_cpu(&vec![EOR_IMM, mask]);
             cpu.reg_a = i;
             let expected = i ^ mask;
-            cpu.run_one(&mut ram);
+            cpu.run_one(&mut mem);
             assert_eq!(expected, cpu.reg_a);
             assert_zn!(cpu, expected == 0, expected >= 0x80);
         }
@@ -121,7 +121,7 @@ fn test_eor() {
     let iny = 0x3456;
     let abs = 0x1234;
     let abs2 = 0x12f8;
-    let (mut cpu, mut ram) = test_cpu(&vec![
+    let (mut cpu, mut mem) = test_cpu(&vec![
         EOR_IMM, v.rotate_left(0),
         EOR_ZPG, zpg,
         EOR_ZPX, zpg,
@@ -138,55 +138,55 @@ fn test_eor() {
     ]);
     cpu.reg_x = x;
     cpu.reg_y = y;
-    ram[zpg as usize] = v.rotate_left(1);
-    ram[(zpg + x) as usize] = v.rotate_left(2);
-    ram[(zpg_inx + x) as usize] = lo(inx);
-    ram[(zpg_inx + x + 1) as usize] = hi(inx);
-    ram[zpg_iny as usize] = lo(iny);
-    ram[(zpg_iny + 1) as usize] = hi(iny);
-    ram[abs as usize] = v.rotate_left(3);
-    ram[(abs + x as u16) as usize] = v.rotate_left(4);
-    ram[(abs + y as u16) as usize] = v.rotate_left(5);
-    ram[inx as usize] = v.rotate_left(6);
-    ram[(iny + y as u16) as usize] = v.rotate_left(7);
-    ram[(abs2 + x as u16) as usize] = v.rotate_left(8);
-    ram[(abs2 + y as u16) as usize] = v.rotate_left(9);
-    ram[(iny + y2 as u16) as usize] = v.rotate_left(10);
+    mem[zpg as usize] = v.rotate_left(1);
+    mem[(zpg + x) as usize] = v.rotate_left(2);
+    mem[(zpg_inx + x) as usize] = lo(inx);
+    mem[(zpg_inx + x + 1) as usize] = hi(inx);
+    mem[zpg_iny as usize] = lo(iny);
+    mem[(zpg_iny + 1) as usize] = hi(iny);
+    mem[abs as usize] = v.rotate_left(3);
+    mem[(abs + x as u16) as usize] = v.rotate_left(4);
+    mem[(abs + y as u16) as usize] = v.rotate_left(5);
+    mem[inx as usize] = v.rotate_left(6);
+    mem[(iny + y as u16) as usize] = v.rotate_left(7);
+    mem[(abs2 + x as u16) as usize] = v.rotate_left(8);
+    mem[(abs2 + y as u16) as usize] = v.rotate_left(9);
+    mem[(iny + y2 as u16) as usize] = v.rotate_left(10);
 
     cpu.reg_a = 0xff;
-    assert_eq!(2, cpu.run_one(&mut ram));
+    assert_eq!(2, cpu.run_one(&mut mem));
     assert_eq!(!v.rotate_left(0), cpu.reg_a);
     cpu.reg_a = 0xff;
-    assert_eq!(3, cpu.run_one(&mut ram));
+    assert_eq!(3, cpu.run_one(&mut mem));
     assert_eq!(!v.rotate_left(1), cpu.reg_a);
     cpu.reg_a = 0xff;
-    assert_eq!(4, cpu.run_one(&mut ram));
+    assert_eq!(4, cpu.run_one(&mut mem));
     assert_eq!(!v.rotate_left(2), cpu.reg_a);
     cpu.reg_a = 0xff;
-    assert_eq!(4, cpu.run_one(&mut ram));
+    assert_eq!(4, cpu.run_one(&mut mem));
     assert_eq!(!v.rotate_left(3), cpu.reg_a);
     cpu.reg_a = 0xff;
-    assert_eq!(4, cpu.run_one(&mut ram));
+    assert_eq!(4, cpu.run_one(&mut mem));
     assert_eq!(!v.rotate_left(4), cpu.reg_a);
     cpu.reg_a = 0xff;
-    assert_eq!(4, cpu.run_one(&mut ram));
+    assert_eq!(4, cpu.run_one(&mut mem));
     assert_eq!(!v.rotate_left(5), cpu.reg_a);
     cpu.reg_a = 0xff;
-    assert_eq!(6, cpu.run_one(&mut ram));
+    assert_eq!(6, cpu.run_one(&mut mem));
     assert_eq!(!v.rotate_left(6), cpu.reg_a);
     cpu.reg_a = 0xff;
-    assert_eq!(5, cpu.run_one(&mut ram));
+    assert_eq!(5, cpu.run_one(&mut mem));
     assert_eq!(!v.rotate_left(7), cpu.reg_a);
 
     cpu.reg_a = 0xff;
-    assert_eq!(5, cpu.run_one(&mut ram));
+    assert_eq!(5, cpu.run_one(&mut mem));
     assert_eq!(!v.rotate_left(8), cpu.reg_a);
     cpu.reg_a = 0xff;
-    assert_eq!(5, cpu.run_one(&mut ram));
+    assert_eq!(5, cpu.run_one(&mut mem));
     assert_eq!(!v.rotate_left(9), cpu.reg_a);
     cpu.reg_y = y2;
     cpu.reg_a = 0xff;
-    assert_eq!(6, cpu.run_one(&mut ram));
+    assert_eq!(6, cpu.run_one(&mut mem));
     assert_eq!(!v.rotate_left(10), cpu.reg_a);
 }
 
@@ -195,10 +195,10 @@ fn test_ora() {
     // Values/flags
     for mask in 0..=0xff {
         for i in 0..=0xff {
-            let (mut cpu, mut ram) = test_cpu(&vec![ORA_IMM, mask]);
+            let (mut cpu, mut mem) = test_cpu(&vec![ORA_IMM, mask]);
             cpu.reg_a = i;
             let expected = i | mask;
-            cpu.run_one(&mut ram);
+            cpu.run_one(&mut mem);
             assert_eq!(expected, cpu.reg_a);
             assert_zn!(cpu, expected == 0, expected >= 0x80);
         }
@@ -216,7 +216,7 @@ fn test_ora() {
     let iny = 0x3456;
     let abs = 0x1234;
     let abs2 = 0x12f8;
-    let (mut cpu, mut ram) = test_cpu(&vec![
+    let (mut cpu, mut mem) = test_cpu(&vec![
         ORA_IMM, v.rotate_left(0),
         ORA_ZPG, zpg,
         ORA_ZPX, zpg,
@@ -233,55 +233,55 @@ fn test_ora() {
     ]);
     cpu.reg_x = x;
     cpu.reg_y = y;
-    ram[zpg as usize] = v.rotate_left(1);
-    ram[(zpg + x) as usize] = v.rotate_left(2);
-    ram[(zpg_inx + x) as usize] = lo(inx);
-    ram[(zpg_inx + x + 1) as usize] = hi(inx);
-    ram[zpg_iny as usize] = lo(iny);
-    ram[(zpg_iny + 1) as usize] = hi(iny);
-    ram[abs as usize] = v.rotate_left(3);
-    ram[(abs + x as u16) as usize] = v.rotate_left(4);
-    ram[(abs + y as u16) as usize] = v.rotate_left(5);
-    ram[inx as usize] = v.rotate_left(6);
-    ram[(iny + y as u16) as usize] = v.rotate_left(7);
-    ram[(abs2 + x as u16) as usize] = v.rotate_left(8);
-    ram[(abs2 + y as u16) as usize] = v.rotate_left(9);
-    ram[(iny + y2 as u16) as usize] = v.rotate_left(10);
+    mem[zpg as usize] = v.rotate_left(1);
+    mem[(zpg + x) as usize] = v.rotate_left(2);
+    mem[(zpg_inx + x) as usize] = lo(inx);
+    mem[(zpg_inx + x + 1) as usize] = hi(inx);
+    mem[zpg_iny as usize] = lo(iny);
+    mem[(zpg_iny + 1) as usize] = hi(iny);
+    mem[abs as usize] = v.rotate_left(3);
+    mem[(abs + x as u16) as usize] = v.rotate_left(4);
+    mem[(abs + y as u16) as usize] = v.rotate_left(5);
+    mem[inx as usize] = v.rotate_left(6);
+    mem[(iny + y as u16) as usize] = v.rotate_left(7);
+    mem[(abs2 + x as u16) as usize] = v.rotate_left(8);
+    mem[(abs2 + y as u16) as usize] = v.rotate_left(9);
+    mem[(iny + y2 as u16) as usize] = v.rotate_left(10);
 
     cpu.reg_a = 0x00;
-    assert_eq!(2, cpu.run_one(&mut ram));
+    assert_eq!(2, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(0), cpu.reg_a);
     cpu.reg_a = 0x00;
-    assert_eq!(3, cpu.run_one(&mut ram));
+    assert_eq!(3, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(1), cpu.reg_a);
     cpu.reg_a = 0x00;
-    assert_eq!(4, cpu.run_one(&mut ram));
+    assert_eq!(4, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(2), cpu.reg_a);
     cpu.reg_a = 0x00;
-    assert_eq!(4, cpu.run_one(&mut ram));
+    assert_eq!(4, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(3), cpu.reg_a);
     cpu.reg_a = 0x00;
-    assert_eq!(4, cpu.run_one(&mut ram));
+    assert_eq!(4, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(4), cpu.reg_a);
     cpu.reg_a = 0x00;
-    assert_eq!(4, cpu.run_one(&mut ram));
+    assert_eq!(4, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(5), cpu.reg_a);
     cpu.reg_a = 0x00;
-    assert_eq!(6, cpu.run_one(&mut ram));
+    assert_eq!(6, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(6), cpu.reg_a);
     cpu.reg_a = 0x00;
-    assert_eq!(5, cpu.run_one(&mut ram));
+    assert_eq!(5, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(7), cpu.reg_a);
 
     cpu.reg_a = 0x00;
-    assert_eq!(5, cpu.run_one(&mut ram));
+    assert_eq!(5, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(8), cpu.reg_a);
     cpu.reg_a = 0x00;
-    assert_eq!(5, cpu.run_one(&mut ram));
+    assert_eq!(5, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(9), cpu.reg_a);
     cpu.reg_y = y2;
     cpu.reg_a = 0x00;
-    assert_eq!(6, cpu.run_one(&mut ram));
+    assert_eq!(6, cpu.run_one(&mut mem));
     assert_eq!(v.rotate_left(10), cpu.reg_a);
 }
 
@@ -290,10 +290,10 @@ fn test_bit() {
     // Values/flags
     for mask in 0..=0xff {
         for i in 0..=0xff {
-            let (mut cpu, mut ram) = test_cpu(&vec![BIT_ZPG, 0x00]);
-            ram[0x00] = i;
+            let (mut cpu, mut mem) = test_cpu(&vec![BIT_ZPG, 0x00]);
+            mem[0x00] = i;
             cpu.reg_a = mask;
-            cpu.run_one(&mut ram);
+            cpu.run_one(&mut mem);
             assert_eq!(i & mask == 0, cpu.flag_zero);
             assert_eq!(i & 0x40 > 0, cpu.flag_overflow);
             assert_eq!(i & 0x80 > 0, cpu.flag_negative);
@@ -304,16 +304,16 @@ fn test_bit() {
     let v = 0x01;
     let zpg = 0x80;
     let abs = 0x1234;
-    let (mut cpu, mut ram) = test_cpu(&vec![
+    let (mut cpu, mut mem) = test_cpu(&vec![
         BIT_ZPG, zpg,
         BIT_ABS, lo(abs), hi(abs),
     ]);
     cpu.reg_a = 0x01;
-    ram[zpg as usize] = v + 0;
-    ram[abs as usize] = v + 1;
+    mem[zpg as usize] = v + 0;
+    mem[abs as usize] = v + 1;
 
-    assert_eq!(3, cpu.run_one(&mut ram));
+    assert_eq!(3, cpu.run_one(&mut mem));
     assert_eq!(false, cpu.flag_zero);
-    assert_eq!(4, cpu.run_one(&mut ram));
+    assert_eq!(4, cpu.run_one(&mut mem));
     assert_eq!(true, cpu.flag_zero);
 }

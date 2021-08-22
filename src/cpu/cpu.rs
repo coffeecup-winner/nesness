@@ -70,18 +70,18 @@ impl CPU {
         Self::default()
     }
 
-    pub fn reset(&mut self, ram: &[u8]) {
+    pub fn reset(&mut self, mem: &[u8]) {
         // Detailed in https://www.pagetable.com/?p=410
         // Internals of BRK/IRQ/NMI/RESET on a MOS 6502 by Michael Steil
         *self = Self::default();
         self.reg_s = self.reg_s.wrapping_sub(3);
-        self.pc = CPU::read_addr(ram, 0xfffc);
+        self.pc = CPU::read_addr(mem, 0xfffc);
     }
 
-    pub fn run_one(&mut self, ram: &mut [u8]) -> u8 {
+    pub fn run_one(&mut self, mem: &mut [u8]) -> u8 {
         #[cfg(test)]
         self.__init_checks();
-        let opcode = self.get_next_byte(ram);
+        let opcode = self.get_next_byte(mem);
         let info = &info::INFO[opcode as usize];
         let extra_cycles = match info.insn {
             // ===== Load/store operations =====
@@ -90,7 +90,7 @@ impl CPU {
                     prefetched_byte: m,
                     has_crossed_page,
                     ..
-                } = self.get_addressed_byte(info.addressing, ram);
+                } = self.get_addressed_byte(info.addressing, mem);
                 self.reg_a = m;
                 self.update_zn_flags(self.reg_a);
                 if has_crossed_page {
@@ -104,7 +104,7 @@ impl CPU {
                     prefetched_byte: m,
                     has_crossed_page,
                     ..
-                } = self.get_addressed_byte(info.addressing, ram);
+                } = self.get_addressed_byte(info.addressing, mem);
                 self.reg_x = m;
                 self.update_zn_flags(self.reg_x);
                 if has_crossed_page {
@@ -118,7 +118,7 @@ impl CPU {
                     prefetched_byte: m,
                     has_crossed_page,
                     ..
-                } = self.get_addressed_byte(info.addressing, ram);
+                } = self.get_addressed_byte(info.addressing, mem);
                 self.reg_y = m;
                 self.update_zn_flags(self.reg_y);
                 if has_crossed_page {
@@ -129,19 +129,19 @@ impl CPU {
             }
             Instruction::STA => {
                 let a = self.reg_a;
-                let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
+                let m = self.get_addressed_byte_mut(info.addressing, mem).byte;
                 *m = a;
                 0
             }
             Instruction::STX => {
                 let x = self.reg_x;
-                let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
+                let m = self.get_addressed_byte_mut(info.addressing, mem).byte;
                 *m = x;
                 0
             }
             Instruction::STY => {
                 let y = self.reg_y;
-                let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
+                let m = self.get_addressed_byte_mut(info.addressing, mem).byte;
                 *m = y;
                 0
             }
@@ -179,21 +179,21 @@ impl CPU {
                 0
             }
             Instruction::PHA => {
-                self.push_byte(ram, self.reg_a);
+                self.push_byte(mem, self.reg_a);
                 0
             }
             Instruction::PHP => {
                 let p = self.pack_flags();
-                self.push_byte(ram, p);
+                self.push_byte(mem, p);
                 0
             }
             Instruction::PLA => {
-                self.reg_a = self.pull_byte(ram);
+                self.reg_a = self.pull_byte(mem);
                 self.update_zn_flags(self.reg_a);
                 0
             }
             Instruction::PLP => {
-                let p = self.pull_byte(ram);
+                let p = self.pull_byte(mem);
                 self.unpack_flags(p);
                 0
             }
@@ -205,7 +205,7 @@ impl CPU {
                     prefetched_byte: m,
                     has_crossed_page,
                     ..
-                } = self.get_addressed_byte(info.addressing, ram);
+                } = self.get_addressed_byte(info.addressing, mem);
                 self.reg_a = a & m;
                 self.update_zn_flags(self.reg_a);
                 if has_crossed_page {
@@ -220,7 +220,7 @@ impl CPU {
                     prefetched_byte: m,
                     has_crossed_page,
                     ..
-                } = self.get_addressed_byte(info.addressing, ram);
+                } = self.get_addressed_byte(info.addressing, mem);
                 self.reg_a = a ^ m;
                 self.update_zn_flags(self.reg_a);
                 if has_crossed_page {
@@ -235,7 +235,7 @@ impl CPU {
                     prefetched_byte: m,
                     has_crossed_page,
                     ..
-                } = self.get_addressed_byte(info.addressing, ram);
+                } = self.get_addressed_byte(info.addressing, mem);
                 self.reg_a = a | m;
                 self.update_zn_flags(self.reg_a);
                 if has_crossed_page {
@@ -247,7 +247,7 @@ impl CPU {
             Instruction::BIT => {
                 let a = self.reg_a;
                 let m = self
-                    .get_addressed_byte(info.addressing, ram)
+                    .get_addressed_byte(info.addressing, mem)
                     .prefetched_byte;
                 self.flag_zero = (m & a) == 0;
                 self.flag_overflow = (m & 0x40) != 0;
@@ -262,7 +262,7 @@ impl CPU {
                     prefetched_byte: m,
                     has_crossed_page,
                     ..
-                } = self.get_addressed_byte(info.addressing, ram);
+                } = self.get_addressed_byte(info.addressing, mem);
                 let mut result = a as u16 + m as u16;
                 if self.flag_carry {
                     result += 1;
@@ -285,7 +285,7 @@ impl CPU {
                     prefetched_byte: m,
                     has_crossed_page,
                     ..
-                } = self.get_addressed_byte(info.addressing, ram);
+                } = self.get_addressed_byte(info.addressing, mem);
                 // A - M - (1 - C) == A + !M + C
                 let mut result = (a as u16).wrapping_add(!(m as u16));
                 if self.flag_carry {
@@ -309,7 +309,7 @@ impl CPU {
                     prefetched_byte: m,
                     has_crossed_page,
                     ..
-                } = self.get_addressed_byte(info.addressing, ram);
+                } = self.get_addressed_byte(info.addressing, mem);
                 self.update_zn_flags(a.wrapping_sub(m));
                 self.flag_carry = a >= m;
                 if has_crossed_page {
@@ -321,7 +321,7 @@ impl CPU {
             Instruction::CPX => {
                 let x = self.reg_x;
                 let m = self
-                    .get_addressed_byte(info.addressing, ram)
+                    .get_addressed_byte(info.addressing, mem)
                     .prefetched_byte;
                 self.update_zn_flags(x.wrapping_sub(m));
                 self.flag_carry = x >= m;
@@ -330,7 +330,7 @@ impl CPU {
             Instruction::CPY => {
                 let y = self.reg_y;
                 let m = self
-                    .get_addressed_byte(info.addressing, ram)
+                    .get_addressed_byte(info.addressing, mem)
                     .prefetched_byte;
                 self.update_zn_flags(y.wrapping_sub(m));
                 self.flag_carry = y >= m;
@@ -339,7 +339,7 @@ impl CPU {
 
             // ===== Increments/decrements =====
             Instruction::INC => {
-                let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
+                let m = self.get_addressed_byte_mut(info.addressing, mem).byte;
                 *m = m.wrapping_add(1);
                 let result = *m;
                 self.update_zn_flags(result);
@@ -356,7 +356,7 @@ impl CPU {
                 0
             }
             Instruction::DEC => {
-                let m = self.get_addressed_byte_mut(info.addressing, ram).byte;
+                let m = self.get_addressed_byte_mut(info.addressing, mem).byte;
                 *m = m.wrapping_sub(1);
                 let result = *m;
                 self.update_zn_flags(result);
@@ -379,7 +379,7 @@ impl CPU {
                     prefetched_byte: prev,
                     byte: v,
                     ..
-                } = self.get_addressed_byte_mut(info.addressing, ram);
+                } = self.get_addressed_byte_mut(info.addressing, mem);
                 *v <<= 1;
                 let result = *v;
                 self.update_zn_flags(result);
@@ -391,7 +391,7 @@ impl CPU {
                     prefetched_byte: prev,
                     byte: v,
                     ..
-                } = self.get_addressed_byte_mut(info.addressing, ram);
+                } = self.get_addressed_byte_mut(info.addressing, mem);
                 *v >>= 1;
                 let result = *v;
                 self.update_zn_flags(result);
@@ -404,7 +404,7 @@ impl CPU {
                     prefetched_byte: prev,
                     byte: v,
                     ..
-                } = self.get_addressed_byte_mut(info.addressing, ram);
+                } = self.get_addressed_byte_mut(info.addressing, mem);
                 *v <<= 1;
                 if carry {
                     *v |= 0x01;
@@ -420,7 +420,7 @@ impl CPU {
                     prefetched_byte: prev,
                     byte: v,
                     ..
-                } = self.get_addressed_byte_mut(info.addressing, ram);
+                } = self.get_addressed_byte_mut(info.addressing, mem);
                 *v >>= 1;
                 if carry {
                     *v |= 0x80;
@@ -433,19 +433,19 @@ impl CPU {
 
             // ===== Jumps/calls =====
             Instruction::JMP => {
-                let addr = self.get_addressed_byte(info.addressing, ram).addr;
+                let addr = self.get_addressed_byte(info.addressing, mem).addr;
                 self.pc = addr;
                 0
             }
             Instruction::JSR => {
-                let addr = self.get_addressed_byte(info.addressing, ram).addr;
+                let addr = self.get_addressed_byte(info.addressing, mem).addr;
                 let return_addr = self.pc - 1;
-                self.push_addr(ram, return_addr);
+                self.push_addr(mem, return_addr);
                 self.pc = addr;
                 0
             }
             Instruction::RTS => {
-                let mut return_addr = self.pull_addr(ram);
+                let mut return_addr = self.pull_addr(mem);
                 return_addr = return_addr.wrapping_add(1);
                 self.pc = return_addr;
                 0
@@ -454,14 +454,14 @@ impl CPU {
             // ===== Branches =====
             Instruction::BCC => {
                 if self.flag_carry {
-                    self.get_next_byte(ram); // Advance past offset
+                    self.get_next_byte(mem); // Advance past offset
                     0
                 } else {
                     let AddressedByte {
                         addr,
                         has_crossed_page,
                         ..
-                    } = self.get_addressed_byte(info.addressing, ram);
+                    } = self.get_addressed_byte(info.addressing, mem);
                     self.pc = addr;
                     if has_crossed_page {
                         2
@@ -472,14 +472,14 @@ impl CPU {
             }
             Instruction::BCS => {
                 if !self.flag_carry {
-                    self.get_next_byte(ram); // Advance past offset
+                    self.get_next_byte(mem); // Advance past offset
                     0
                 } else {
                     let AddressedByte {
                         addr,
                         has_crossed_page,
                         ..
-                    } = self.get_addressed_byte(info.addressing, ram);
+                    } = self.get_addressed_byte(info.addressing, mem);
                     self.pc = addr;
                     if has_crossed_page {
                         2
@@ -490,14 +490,14 @@ impl CPU {
             }
             Instruction::BEQ => {
                 if !self.flag_zero {
-                    self.get_next_byte(ram); // Advance past offset
+                    self.get_next_byte(mem); // Advance past offset
                     0
                 } else {
                     let AddressedByte {
                         addr,
                         has_crossed_page,
                         ..
-                    } = self.get_addressed_byte(info.addressing, ram);
+                    } = self.get_addressed_byte(info.addressing, mem);
                     self.pc = addr;
                     if has_crossed_page {
                         2
@@ -508,14 +508,14 @@ impl CPU {
             }
             Instruction::BMI => {
                 if !self.flag_negative {
-                    self.get_next_byte(ram); // Advance past offset
+                    self.get_next_byte(mem); // Advance past offset
                     0
                 } else {
                     let AddressedByte {
                         addr,
                         has_crossed_page,
                         ..
-                    } = self.get_addressed_byte(info.addressing, ram);
+                    } = self.get_addressed_byte(info.addressing, mem);
                     self.pc = addr;
                     if has_crossed_page {
                         2
@@ -526,14 +526,14 @@ impl CPU {
             }
             Instruction::BNE => {
                 if self.flag_zero {
-                    self.get_next_byte(ram); // Advance past offset
+                    self.get_next_byte(mem); // Advance past offset
                     0
                 } else {
                     let AddressedByte {
                         addr,
                         has_crossed_page,
                         ..
-                    } = self.get_addressed_byte(info.addressing, ram);
+                    } = self.get_addressed_byte(info.addressing, mem);
                     self.pc = addr;
                     if has_crossed_page {
                         2
@@ -544,14 +544,14 @@ impl CPU {
             }
             Instruction::BPL => {
                 if self.flag_negative {
-                    self.get_next_byte(ram); // Advance past offset
+                    self.get_next_byte(mem); // Advance past offset
                     0
                 } else {
                     let AddressedByte {
                         addr,
                         has_crossed_page,
                         ..
-                    } = self.get_addressed_byte(info.addressing, ram);
+                    } = self.get_addressed_byte(info.addressing, mem);
                     self.pc = addr;
                     if has_crossed_page {
                         2
@@ -562,14 +562,14 @@ impl CPU {
             }
             Instruction::BVC => {
                 if self.flag_overflow {
-                    self.get_next_byte(ram); // Advance past offset
+                    self.get_next_byte(mem); // Advance past offset
                     0
                 } else {
                     let AddressedByte {
                         addr,
                         has_crossed_page,
                         ..
-                    } = self.get_addressed_byte(info.addressing, ram);
+                    } = self.get_addressed_byte(info.addressing, mem);
                     self.pc = addr;
                     if has_crossed_page {
                         2
@@ -580,14 +580,14 @@ impl CPU {
             }
             Instruction::BVS => {
                 if !self.flag_overflow {
-                    self.get_next_byte(ram); // Advance past offset
+                    self.get_next_byte(mem); // Advance past offset
                     0
                 } else {
                     let AddressedByte {
                         addr,
                         has_crossed_page,
                         ..
-                    } = self.get_addressed_byte(info.addressing, ram);
+                    } = self.get_addressed_byte(info.addressing, mem);
                     self.pc = addr;
                     if has_crossed_page {
                         2
@@ -621,18 +621,18 @@ impl CPU {
 
             // ===== System functions =====
             Instruction::BRK => {
-                self.push_addr(ram, self.pc);
+                self.push_addr(mem, self.pc);
                 let p = self.pack_flags();
-                self.push_byte(ram, p);
-                self.pc = CPU::read_addr(ram, 0xfffe);
+                self.push_byte(mem, p);
+                self.pc = CPU::read_addr(mem, 0xfffe);
                 self.flag_break = true;
                 0
             }
             Instruction::NOP => 0,
             Instruction::RTI => {
-                let p = self.pull_byte(ram);
+                let p = self.pull_byte(mem);
                 self.unpack_flags(p);
-                self.pc = self.pull_addr(ram);
+                self.pc = self.pull_addr(mem);
                 0
             }
 
@@ -681,7 +681,7 @@ impl CPU {
         self.flag_negative = (p & flags::N) != 0;
     }
 
-    fn get_addressed_byte(&mut self, mode: AddressingMode, ram: &mut [u8]) -> AddressedByte {
+    fn get_addressed_byte(&mut self, mode: AddressingMode, mem: &mut [u8]) -> AddressedByte {
         match mode {
             AddressingMode::Implicit => {
                 panic!("Implicit addressing mode must be handled by the caller")
@@ -696,67 +696,67 @@ impl CPU {
                 {
                     self.__insn_bytes_read += 1;
                 }
-                AddressedByte::new(addr, ram[addr as usize], false)
+                AddressedByte::new(addr, mem[addr as usize], false)
             }
             AddressingMode::ZeroPage => {
-                let addr = self.get_next_byte(ram) as u16;
-                AddressedByte::new(addr, ram[addr as usize], false)
+                let addr = self.get_next_byte(mem) as u16;
+                AddressedByte::new(addr, mem[addr as usize], false)
             }
             AddressingMode::ZeroPageX => {
-                let addr = (self.get_next_byte(ram) + self.reg_x) as u16;
-                AddressedByte::new(addr, ram[addr as usize], false)
+                let addr = (self.get_next_byte(mem) + self.reg_x) as u16;
+                AddressedByte::new(addr, mem[addr as usize], false)
             }
             AddressingMode::ZeroPageY => {
-                let addr = (self.get_next_byte(ram) + self.reg_y) as u16;
-                AddressedByte::new(addr, ram[addr as usize], false)
+                let addr = (self.get_next_byte(mem) + self.reg_y) as u16;
+                AddressedByte::new(addr, mem[addr as usize], false)
             }
             AddressingMode::Relative => {
-                let offset = self.get_next_byte(ram) as i8;
+                let offset = self.get_next_byte(mem) as i8;
                 let offset_u16 = (0x100 + offset as i16) as u16;
                 let addr = (self.pc - 0x100 + offset_u16) as u16;
                 let has_crossed_page = (self.pc & 0x0100) != (addr & 0x0100);
-                AddressedByte::new(addr, ram[addr as usize], has_crossed_page)
+                AddressedByte::new(addr, mem[addr as usize], has_crossed_page)
             }
             AddressingMode::Absolute => {
-                let lo = self.get_next_byte(ram);
-                let hi = self.get_next_byte(ram);
+                let lo = self.get_next_byte(mem);
+                let hi = self.get_next_byte(mem);
                 let addr = ((hi as u16) << 8) + lo as u16;
-                AddressedByte::new(addr, ram[addr as usize], false)
+                AddressedByte::new(addr, mem[addr as usize], false)
             }
             AddressingMode::AbsoluteX => {
-                let lo = self.get_next_byte(ram);
-                let hi = self.get_next_byte(ram);
+                let lo = self.get_next_byte(mem);
+                let hi = self.get_next_byte(mem);
                 let addr_base = ((hi as u16) << 8) + lo as u16;
                 let addr = addr_base + self.reg_x as u16;
                 let has_crossed_page = self.reg_x > addr as u8;
-                AddressedByte::new(addr, ram[addr as usize], has_crossed_page)
+                AddressedByte::new(addr, mem[addr as usize], has_crossed_page)
             }
             AddressingMode::AbsoluteY => {
-                let lo = self.get_next_byte(ram);
-                let hi = self.get_next_byte(ram);
+                let lo = self.get_next_byte(mem);
+                let hi = self.get_next_byte(mem);
                 let addr_base = ((hi as u16) << 8) + lo as u16;
                 let addr = addr_base + self.reg_y as u16;
                 let has_crossed_page = self.reg_y > addr as u8;
-                AddressedByte::new(addr, ram[addr as usize], has_crossed_page)
+                AddressedByte::new(addr, mem[addr as usize], has_crossed_page)
             }
             AddressingMode::Indirect => {
-                let lo = self.get_next_byte(ram);
-                let hi = self.get_next_byte(ram);
+                let lo = self.get_next_byte(mem);
+                let hi = self.get_next_byte(mem);
                 let addr_indirect = ((hi as u16) << 8) + lo as u16;
-                let addr = CPU::read_addr(ram, addr_indirect);
-                AddressedByte::new(addr, ram[addr as usize], false)
+                let addr = CPU::read_addr(mem, addr_indirect);
+                AddressedByte::new(addr, mem[addr as usize], false)
             }
             AddressingMode::IndexedIndirect => {
-                let zero_page_addr = (self.get_next_byte(ram) + self.reg_x) as u16;
-                let addr = CPU::read_addr(ram, zero_page_addr);
-                AddressedByte::new(addr, ram[addr as usize], false)
+                let zero_page_addr = (self.get_next_byte(mem) + self.reg_x) as u16;
+                let addr = CPU::read_addr(mem, zero_page_addr);
+                AddressedByte::new(addr, mem[addr as usize], false)
             }
             AddressingMode::IndirectIndexed => {
-                let zero_page_addr = self.get_next_byte(ram);
-                let addr_base = CPU::read_addr(ram, zero_page_addr as u16);
+                let zero_page_addr = self.get_next_byte(mem);
+                let addr_base = CPU::read_addr(mem, zero_page_addr as u16);
                 let addr = addr_base + self.reg_y as u16;
                 let has_crossed_page = self.reg_y > addr as u8;
-                AddressedByte::new(addr, ram[addr as usize], has_crossed_page)
+                AddressedByte::new(addr, mem[addr as usize], has_crossed_page)
             }
         }
     }
@@ -764,7 +764,7 @@ impl CPU {
     fn get_addressed_byte_mut<'a>(
         &'a mut self,
         mode: AddressingMode,
-        ram: &'a mut [u8],
+        mem: &'a mut [u8],
     ) -> AddressedByteMut<'a> {
         match mode {
             AddressingMode::Implicit => {
@@ -775,63 +775,63 @@ impl CPU {
                 panic!("Can't address immediate as mutable")
             }
             AddressingMode::ZeroPage => {
-                let addr = self.get_next_byte(ram) as u16;
-                AddressedByteMut::new(&mut ram[addr as usize])
+                let addr = self.get_next_byte(mem) as u16;
+                AddressedByteMut::new(&mut mem[addr as usize])
             }
             AddressingMode::ZeroPageX => {
-                let addr = (self.get_next_byte(ram) + self.reg_x) as u16;
-                AddressedByteMut::new(&mut ram[addr as usize])
+                let addr = (self.get_next_byte(mem) + self.reg_x) as u16;
+                AddressedByteMut::new(&mut mem[addr as usize])
             }
             AddressingMode::ZeroPageY => {
-                let addr = (self.get_next_byte(ram) + self.reg_y) as u16;
-                AddressedByteMut::new(&mut ram[addr as usize])
+                let addr = (self.get_next_byte(mem) + self.reg_y) as u16;
+                AddressedByteMut::new(&mut mem[addr as usize])
             }
             AddressingMode::Relative => {
                 panic!("Relative addressing mode must be handled by the caller")
             }
             AddressingMode::Absolute => {
-                let lo = self.get_next_byte(ram);
-                let hi = self.get_next_byte(ram);
+                let lo = self.get_next_byte(mem);
+                let hi = self.get_next_byte(mem);
                 let addr = ((hi as u16) << 8) + lo as u16;
-                AddressedByteMut::new(&mut ram[addr as usize])
+                AddressedByteMut::new(&mut mem[addr as usize])
             }
             AddressingMode::AbsoluteX => {
-                let lo = self.get_next_byte(ram);
-                let hi = self.get_next_byte(ram);
+                let lo = self.get_next_byte(mem);
+                let hi = self.get_next_byte(mem);
                 let addr_base = ((hi as u16) << 8) + lo as u16;
                 let addr = addr_base + self.reg_x as u16;
-                AddressedByteMut::new(&mut ram[addr as usize])
+                AddressedByteMut::new(&mut mem[addr as usize])
             }
             AddressingMode::AbsoluteY => {
-                let lo = self.get_next_byte(ram);
-                let hi = self.get_next_byte(ram);
+                let lo = self.get_next_byte(mem);
+                let hi = self.get_next_byte(mem);
                 let addr_base = ((hi as u16) << 8) + lo as u16;
                 let addr = addr_base + self.reg_y as u16;
-                AddressedByteMut::new(&mut ram[addr as usize])
+                AddressedByteMut::new(&mut mem[addr as usize])
             }
             AddressingMode::Indirect => {
-                let lo = self.get_next_byte(ram);
-                let hi = self.get_next_byte(ram);
+                let lo = self.get_next_byte(mem);
+                let hi = self.get_next_byte(mem);
                 let addr_indirect = ((hi as u16) << 8) + lo as u16;
-                let addr = CPU::read_addr(ram, addr_indirect);
-                AddressedByteMut::new(&mut ram[addr as usize])
+                let addr = CPU::read_addr(mem, addr_indirect);
+                AddressedByteMut::new(&mut mem[addr as usize])
             }
             AddressingMode::IndexedIndirect => {
-                let zero_page_addr = (self.get_next_byte(ram) + self.reg_x) as u16;
-                let addr = CPU::read_addr(ram, zero_page_addr);
-                AddressedByteMut::new(&mut ram[addr as usize])
+                let zero_page_addr = (self.get_next_byte(mem) + self.reg_x) as u16;
+                let addr = CPU::read_addr(mem, zero_page_addr);
+                AddressedByteMut::new(&mut mem[addr as usize])
             }
             AddressingMode::IndirectIndexed => {
-                let zero_page_addr = self.get_next_byte(ram);
-                let addr_base = CPU::read_addr(ram, zero_page_addr as u16);
+                let zero_page_addr = self.get_next_byte(mem);
+                let addr_base = CPU::read_addr(mem, zero_page_addr as u16);
                 let addr = addr_base + self.reg_y as u16;
-                AddressedByteMut::new(&mut ram[addr as usize])
+                AddressedByteMut::new(&mut mem[addr as usize])
             }
         }
     }
 
-    fn get_next_byte(&mut self, ram: &[u8]) -> u8 {
-        let byte = ram[self.pc as usize];
+    fn get_next_byte(&mut self, mem: &[u8]) -> u8 {
+        let byte = mem[self.pc as usize];
         self.pc += 1;
         #[cfg(test)]
         {
@@ -840,30 +840,30 @@ impl CPU {
         byte
     }
 
-    fn push_byte(&mut self, ram: &mut [u8], b: u8) {
-        ram[(0x0100 + self.reg_s as u16) as usize] = b;
+    fn push_byte(&mut self, mem: &mut [u8], b: u8) {
+        mem[(0x0100 + self.reg_s as u16) as usize] = b;
         self.reg_s = self.reg_s.wrapping_sub(1);
     }
 
-    fn pull_byte(&mut self, ram: &[u8]) -> u8 {
+    fn pull_byte(&mut self, mem: &[u8]) -> u8 {
         self.reg_s = self.reg_s.wrapping_add(1);
-        return ram[(0x0100 + self.reg_s as u16) as usize];
+        return mem[(0x0100 + self.reg_s as u16) as usize];
     }
 
-    fn push_addr(&mut self, ram: &mut [u8], addr: u16) {
-        self.push_byte(ram, (addr >> 8) as u8);
-        self.push_byte(ram, addr as u8);
+    fn push_addr(&mut self, mem: &mut [u8], addr: u16) {
+        self.push_byte(mem, (addr >> 8) as u8);
+        self.push_byte(mem, addr as u8);
     }
 
-    fn pull_addr(&mut self, ram: &[u8]) -> u16 {
-        let mut addr = self.pull_byte(ram) as u16;
-        addr |= (self.pull_byte(ram) as u16) << 8;
+    fn pull_addr(&mut self, mem: &[u8]) -> u16 {
+        let mut addr = self.pull_byte(mem) as u16;
+        addr |= (self.pull_byte(mem) as u16) << 8;
         addr
     }
 
-    fn read_addr(ram: &[u8], addr: u16) -> u16 {
-        let mut result = ram[addr as usize] as u16;
-        result |= (ram[addr as usize + 1] as u16) << 8;
+    fn read_addr(mem: &[u8], addr: u16) -> u16 {
+        let mut result = mem[addr as usize] as u16;
+        result |= (mem[addr as usize + 1] as u16) << 8;
         result
     }
 

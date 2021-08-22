@@ -25,16 +25,16 @@ macro_rules! assert_zn {
 
 fn test_cpu(program: &[u8]) -> (CPU, Vec<u8>) {
     let pc = 0x1000u16;
-    let mut ram = vec![0; 0x10000];
-    ram.splice(
+    let mut mem = vec![0; 0x10000];
+    mem.splice(
         pc as usize..(pc as usize) + program.len(),
         program.iter().cloned(),
     );
-    ram[0xfffc] = pc as u8;
-    ram[0xfffd] = (pc >> 8) as u8;
+    mem[0xfffc] = pc as u8;
+    mem[0xfffd] = (pc >> 8) as u8;
     let mut cpu = CPU::new();
-    cpu.reset(&ram);
-    (cpu, ram)
+    cpu.reset(&mem);
+    (cpu, mem)
 }
 
 fn lo(v: u16) -> u8 {

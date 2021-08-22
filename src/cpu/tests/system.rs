@@ -4,9 +4,9 @@ use crate::cpu::rp2a03::flags;
 #[test]
 fn test_brk() {
     for addr in 0..=0xffff {
-        let (mut cpu, mut ram) = test_cpu(&vec![BRK_IMP]);
-        ram[0xfffe] = lo(addr);
-        ram[0xffff] = hi(addr);
+        let (mut cpu, mut mem) = test_cpu(&vec![BRK_IMP]);
+        mem[0xfffe] = lo(addr);
+        mem[0xffff] = hi(addr);
         cpu.reg_s = 0x02;
         cpu.flag_carry = ((addr as u8) & flags::C) != 0;
         cpu.flag_zero = ((addr as u8) & flags::Z) != 0;
@@ -15,11 +15,11 @@ fn test_brk() {
         cpu.flag_overflow = ((addr as u8) & flags::V) != 0;
         cpu.flag_negative = ((addr as u8) & flags::N) != 0;
         let return_addr = cpu.pc + 1;
-        assert_eq!(7, cpu.run_one(&mut ram));
+        assert_eq!(7, cpu.run_one(&mut mem));
         assert_eq!(addr, cpu.pc);
-        assert_eq!(lo(return_addr), ram[0x101]);
-        assert_eq!(hi(return_addr), ram[0x102]);
-        let p = ram[0x100];
+        assert_eq!(lo(return_addr), mem[0x101]);
+        assert_eq!(hi(return_addr), mem[0x102]);
+        let p = mem[0x100];
         assert_eq!(((addr as u8) & flags::C) != 0, (p & flags::C) != 0);
         assert_eq!(((addr as u8) & flags::Z) != 0, (p & flags::Z) != 0);
         assert_eq!(((addr as u8) & flags::I) != 0, (p & flags::I) != 0);
@@ -33,9 +33,9 @@ fn test_brk() {
 
 #[test]
 fn test_nop() {
-    let (mut cpu, mut ram) = test_cpu(&vec![NOP_IMP]);
+    let (mut cpu, mut mem) = test_cpu(&vec![NOP_IMP]);
     let copy = cpu.clone();
-    assert_eq!(2, cpu.run_one(&mut ram));
+    assert_eq!(2, cpu.run_one(&mut mem));
     assert_eq!(copy.pc + 1, cpu.pc);
     assert_eq!(copy.reg_a, cpu.reg_a);
     assert_eq!(copy.reg_x, cpu.reg_x);
@@ -52,7 +52,7 @@ fn test_nop() {
 #[test]
 fn test_rti() {
     for addr in 0..=0xffff {
-        let (mut cpu, mut ram) = test_cpu(&vec![RTI_IMP]);
+        let (mut cpu, mut mem) = test_cpu(&vec![RTI_IMP]);
         let mut p = 0x20;
         p |= if ((addr as u8) & flags::C) != 0 { flags::C } else { 0 };
         p |= if ((addr as u8) & flags::Z) != 0 { flags::Z } else { 0 };
@@ -60,11 +60,11 @@ fn test_rti() {
         p |= if ((addr as u8) & flags::B) != 0 { flags::B } else { 0 };
         p |= if ((addr as u8) & flags::V) != 0 { flags::V } else { 0 };
         p |= if ((addr as u8) & flags::N) != 0 { flags::N } else { 0 };
-        ram[0x100] = p;
-        ram[0x101] = lo(addr);
-        ram[0x102] = hi(addr);
+        mem[0x100] = p;
+        mem[0x101] = lo(addr);
+        mem[0x102] = hi(addr);
         cpu.reg_s = 0xff;
-        assert_eq!(6, cpu.run_one(&mut ram));
+        assert_eq!(6, cpu.run_one(&mut mem));
         assert_eq!(addr, cpu.pc);
         assert_eq!(((addr as u8) & flags::C) != 0, cpu.flag_carry);
         assert_eq!(((addr as u8) & flags::Z) != 0, cpu.flag_zero);

@@ -3,7 +3,7 @@ use super::*;
 fn test_common<F: FnMut(&mut CPU) -> &mut bool>(opcode: u8, branch_on_set: bool, mut get_flag: F) {
     // Values
     for i in -128..=127i8 {
-        let (mut cpu, mut ram) = test_cpu(&vec![opcode, i as u8]);
+        let (mut cpu, mut mem) = test_cpu(&vec![opcode, i as u8]);
         *get_flag(&mut cpu) = branch_on_set;
         let prev_pc = cpu.pc;
         let new_pc = (cpu.pc as i16 + i as i16 + 2) as u16;
@@ -12,16 +12,16 @@ fn test_common<F: FnMut(&mut CPU) -> &mut bool>(opcode: u8, branch_on_set: bool,
         } else {
             0
         };
-        assert_eq!(3 + extra_cycle, cpu.run_one(&mut ram));
+        assert_eq!(3 + extra_cycle, cpu.run_one(&mut mem));
         assert_eq!(new_pc, cpu.pc);
     }
 
     // No branch
     for i in -128..=127i8 {
-        let (mut cpu, mut ram) = test_cpu(&vec![opcode, i as u8]);
+        let (mut cpu, mut mem) = test_cpu(&vec![opcode, i as u8]);
         *get_flag(&mut cpu) = !branch_on_set;
         let new_pc = cpu.pc + 2;
-        assert_eq!(2, cpu.run_one(&mut ram));
+        assert_eq!(2, cpu.run_one(&mut mem));
         assert_eq!(new_pc, cpu.pc);
     }
 }

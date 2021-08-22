@@ -5,10 +5,10 @@ use crate::cpu::rp2a03::flags;
 fn test_tsx() {
     // Values/flags
     for i in 0..=0xff {
-        let (mut cpu, mut ram) = test_cpu(&vec![TSX_IMP]);
+        let (mut cpu, mut mem) = test_cpu(&vec![TSX_IMP]);
         cpu.reg_s = i;
         cpu.reg_x = !i;
-        assert_eq!(2, cpu.run_one(&mut ram));
+        assert_eq!(2, cpu.run_one(&mut mem));
         assert_eq!(i, cpu.reg_x);
         assert_zn!(cpu, i == 0, i >= 0x80);
     }
@@ -18,10 +18,10 @@ fn test_tsx() {
 fn test_txs() {
     // Values
     for i in 0..=0xff {
-        let (mut cpu, mut ram) = test_cpu(&vec![TXS_IMP]);
+        let (mut cpu, mut mem) = test_cpu(&vec![TXS_IMP]);
         cpu.reg_x = i;
         cpu.reg_s = !i;
-        assert_eq!(2, cpu.run_one(&mut ram));
+        assert_eq!(2, cpu.run_one(&mut mem));
         assert_eq!(i, cpu.reg_s);
     }
 }
@@ -30,12 +30,12 @@ fn test_txs() {
 fn test_pha() {
     // Values
     for i in 0..=0xff {
-        let (mut cpu, mut ram) = test_cpu(&vec![PHA_IMP]);
+        let (mut cpu, mut mem) = test_cpu(&vec![PHA_IMP]);
         cpu.reg_a = i;
         cpu.reg_s = i;
-        ram[0x100 + i as usize] = !i;
-        assert_eq!(3, cpu.run_one(&mut ram));
-        assert_eq!(ram[0x100 + i as usize], i);
+        mem[0x100 + i as usize] = !i;
+        assert_eq!(3, cpu.run_one(&mut mem));
+        assert_eq!(mem[0x100 + i as usize], i);
     }
 }
 
@@ -48,15 +48,15 @@ fn test_php() {
                 for break_ in 0..=1 {
                     for overflow in 0..=1 {
                         for negative in 0..=1 {
-                            let (mut cpu, mut ram) = test_cpu(&vec![PHP_IMP]);
+                            let (mut cpu, mut mem) = test_cpu(&vec![PHP_IMP]);
                             cpu.flag_carry = carry != 0;
                             cpu.flag_zero = zero != 0;
                             cpu.flag_interrupt_disable = interrupt_disable != 0;
                             cpu.flag_break = break_ != 0;
                             cpu.flag_overflow = overflow != 0;
                             cpu.flag_negative = negative != 0;
-                            assert_eq!(3, cpu.run_one(&mut ram));
-                            let p = ram[0x100 + cpu.reg_s as usize + 1];
+                            assert_eq!(3, cpu.run_one(&mut mem));
+                            let p = mem[0x100 + cpu.reg_s as usize + 1];
                             assert_eq!(carry != 0, (p & flags::C) != 0);
                             assert_eq!(zero != 0, (p & flags::Z) != 0);
                             assert_eq!(interrupt_disable != 0, (p & flags::I) != 0);
@@ -76,15 +76,15 @@ fn test_php() {
 #[test]
 fn test_pla() {
     // Values/flags
-    let (mut cpu, mut ram) = test_cpu(&vec![PLA_IMP; 256]);
+    let (mut cpu, mut mem) = test_cpu(&vec![PLA_IMP; 256]);
     for i in (0..=0xffu8).rev() {
-        ram[0x100 + i as usize] = i.wrapping_sub(128);
+        mem[0x100 + i as usize] = i.wrapping_sub(128);
     }
     cpu.reg_s = 0xff;
     for i in 0..=0xff {
         cpu.reg_a = !i;
         let expected = i.wrapping_sub(128);
-        assert_eq!(4, cpu.run_one(&mut ram));
+        assert_eq!(4, cpu.run_one(&mut mem));
         assert_eq!(expected, cpu.reg_a);
         assert_zn!(cpu, expected == 0, (expected & 0x80) != 0);
     }
@@ -99,7 +99,7 @@ fn test_plp() {
                 for break_ in 0..=1 {
                     for overflow in 0..=1 {
                         for negative in 0..=1 {
-                            let (mut cpu, mut ram) = test_cpu(&vec![PLP_IMP]);
+                            let (mut cpu, mut mem) = test_cpu(&vec![PLP_IMP]);
                             let mut p = 0x20;
                             p |= if carry != 0 { flags::C } else { 0 };
                             p |= if zero != 0 { flags::Z } else { 0 };
@@ -107,9 +107,9 @@ fn test_plp() {
                             p |= if break_ != 0 { flags::B } else { 0 };
                             p |= if overflow != 0 { flags::V } else { 0 };
                             p |= if negative != 0 { flags::N } else { 0 };
-                            ram[0x100] = p;
+                            mem[0x100] = p;
                             cpu.reg_s = 0xff;
-                            assert_eq!(4, cpu.run_one(&mut ram));
+                            assert_eq!(4, cpu.run_one(&mut mem));
                             assert_eq!(carry != 0, cpu.flag_carry);
                             assert_eq!(zero != 0, cpu.flag_zero);
                             assert_eq!(interrupt_disable != 0, cpu.flag_interrupt_disable);
