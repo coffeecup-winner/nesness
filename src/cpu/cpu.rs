@@ -643,7 +643,21 @@ impl CPU {
                 self.flag_break = true;
                 0
             }
-            Instruction::NOP => 0,
+            Instruction::NOP => {
+                if info.addressing == AddressingMode::Implicit {
+                    0
+                } else {
+                    // Advance PC and burn cycles in case an unofficial NOP with addressing is used
+                    let AddressedByte {
+                        has_crossed_page, ..
+                    } = self.get_addressed_byte(info.addressing, mem);
+                    if has_crossed_page {
+                        1
+                    } else {
+                        0
+                    }
+                }
+            }
             Instruction::RTI => {
                 let p = self.pull_byte(mem);
                 self.unpack_flags(p);
