@@ -667,6 +667,14 @@ impl CPU {
 
             // ===== Unofficial instructions =====
 
+            Instruction::SAX => {
+                let a = self.reg_a;
+                let x = self.reg_x;
+                let m = self.get_addressed_byte_mut(info.addressing, mem).byte;
+                *m = a & x;
+                0
+            }
+
             Instruction::LAX => {
                 let AddressedByte {
                     prefetched_byte: m,

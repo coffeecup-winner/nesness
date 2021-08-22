@@ -82,6 +82,7 @@ pub enum Instruction {
 
     // ----- Unofficial opcodes -----
 
+    SAX, // Store A & X
     LAX, // Load accumulator and X
 }
 
@@ -479,6 +480,11 @@ opcodes! {
     NOP_AX3,    NOP,    AbsoluteX,          0x7c,   3,  4,  [],         [],
     NOP_AX4,    NOP,    AbsoluteX,          0xdc,   3,  4,  [],         [],
     NOP_AX5,    NOP,    AbsoluteX,          0xfc,   3,  4,  [],         [],
+
+    SAX_ZPG,    SAX,    ZeroPage,           0x87,   2,  3,  [M],        [],
+    SAX_ZPY,    SAX,    ZeroPageY,          0x97,   2,  4,  [M],        [],
+    SAX_ABS,    SAX,    Absolute,           0x8f,   3,  4,  [M],        [],
+    SAX_INX,    SAX,    IndexedIndirect,    0x83,   2,  6,  [M],        [],
 
     // LAX - Load accumulator and X
     LAX_IMM,    LAX,    Immediate,          0xab,   2,  2,  [A X],      [Z N], // UNSTABLE
