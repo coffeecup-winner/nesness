@@ -82,8 +82,14 @@ pub enum Instruction {
 
     // ----- Unofficial opcodes -----
 
+    SLO, // Shift left and OR
+    RLA, // Rotate left and AND
+    SRE, // Shift right and XOR
+    RRA, // Rotate right and add
     SAX, // Store A & X
     LAX, // Load accumulator and X
+    DCP, // Decrement and compare
+    ISB, // Increment and subtract
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -160,7 +166,7 @@ macro_rules! opcodes {
             lazy_static::lazy_static! {
                 pub static ref INFO: Vec<Info> = {
                     let mut result = vec![];
-                    for i in 0..0xffu8 {
+                    for i in 0..=0xffu8 {
                         result.push(Info {
                             opcode: i,
                             insn: $crate::cpu::rp2a03::Instruction::ILL,
@@ -481,6 +487,43 @@ opcodes! {
     NOP_AX4,    NOP,    AbsoluteX,          0xdc,   3,  4,  [],         [],
     NOP_AX5,    NOP,    AbsoluteX,          0xfc,   3,  4,  [],         [],
 
+    // SLO - Shift left and OR
+    SLO_ZPG,    SLO,    ZeroPage,           0x07,   2,  5,  [A M],      [C Z N],
+    SLO_ZPX,    SLO,    ZeroPageX,          0x17,   2,  6,  [A M],      [C Z N],
+    SLO_ABS,    SLO,    Absolute,           0x0f,   3,  6,  [A M],      [C Z N],
+    SLO_ABX,    SLO,    AbsoluteX,          0x1f,   3,  7,  [A M],      [C Z N],
+    SLO_ABY,    SLO,    AbsoluteY,          0x1b,   3,  7,  [A M],      [C Z N],
+    SLO_INX,    SLO,    IndexedIndirect,    0x03,   2,  8,  [A M],      [C Z N],
+    SLO_INY,    SLO,    IndirectIndexed,    0x13,   2,  8,  [A M],      [C Z N],
+
+    // RLA - Rotate left and AND
+    RLA_ZPG,    RLA,    ZeroPage,           0x27,   2,  5,  [A M],      [C Z N],
+    RLA_ZPX,    RLA,    ZeroPageX,          0x37,   2,  6,  [A M],      [C Z N],
+    RLA_ABS,    RLA,    Absolute,           0x2f,   3,  6,  [A M],      [C Z N],
+    RLA_ABX,    RLA,    AbsoluteX,          0x3f,   3,  7,  [A M],      [C Z N],
+    RLA_ABY,    RLA,    AbsoluteY,          0x3b,   3,  7,  [A M],      [C Z N],
+    RLA_INX,    RLA,    IndexedIndirect,    0x23,   2,  8,  [A M],      [C Z N],
+    RLA_INY,    RLA,    IndirectIndexed,    0x33,   2,  8,  [A M],      [C Z N],
+
+    // SRE - Shift right and XOR
+    SRE_ZPG,    SRE,    ZeroPage,           0x47,   2,  5,  [A M],      [C Z N],
+    SRE_ZPX,    SRE,    ZeroPageX,          0x57,   2,  6,  [A M],      [C Z N],
+    SRE_ABS,    SRE,    Absolute,           0x4f,   3,  6,  [A M],      [C Z N],
+    SRE_ABX,    SRE,    AbsoluteX,          0x5f,   3,  7,  [A M],      [C Z N],
+    SRE_ABY,    SRE,    AbsoluteY,          0x5b,   3,  7,  [A M],      [C Z N],
+    SRE_INX,    SRE,    IndexedIndirect,    0x43,   2,  8,  [A M],      [C Z N],
+    SRE_INY,    SRE,    IndirectIndexed,    0x53,   2,  8,  [A M],      [C Z N],
+
+    // RRA - Rotate right and add
+    RRA_ZPG,    RRA,    ZeroPage,           0x67,   2,  5,  [A M],      [C Z V N],
+    RRA_ZPX,    RRA,    ZeroPageX,          0x77,   2,  6,  [A M],      [C Z V N],
+    RRA_ABS,    RRA,    Absolute,           0x6f,   3,  6,  [A M],      [C Z V N],
+    RRA_ABX,    RRA,    AbsoluteX,          0x7f,   3,  7,  [A M],      [C Z V N],
+    RRA_ABY,    RRA,    AbsoluteY,          0x7b,   3,  7,  [A M],      [C Z V N],
+    RRA_INX,    RRA,    IndexedIndirect,    0x63,   2,  8,  [A M],      [C Z V N],
+    RRA_INY,    RRA,    IndirectIndexed,    0x73,   2,  8,  [A M],      [C Z V N],
+
+    // SAX - Store A & X
     SAX_ZPG,    SAX,    ZeroPage,           0x87,   2,  3,  [M],        [],
     SAX_ZPY,    SAX,    ZeroPageY,          0x97,   2,  4,  [M],        [],
     SAX_ABS,    SAX,    Absolute,           0x8f,   3,  4,  [M],        [],
@@ -494,4 +537,25 @@ opcodes! {
     LAX_ABY,    LAX,    AbsoluteY,          0xbf,   3,  4,  [A X],      [Z N],
     LAX_INX,    LAX,    IndexedIndirect,    0xa3,   2,  6,  [A X],      [Z N],
     LAX_INY,    LAX,    IndirectIndexed,    0xb3,   2,  5,  [A X],      [Z N],
+
+    // DCP - Decrement and compare
+    DCP_ZPG,    DCP,    ZeroPage,           0xc7,   2,  5,  [M],        [C Z N],
+    DCP_ZPX,    DCP,    ZeroPageX,          0xd7,   2,  6,  [M],        [C Z N],
+    DCP_ABS,    DCP,    Absolute,           0xcf,   3,  6,  [M],        [C Z N],
+    DCP_ABX,    DCP,    AbsoluteX,          0xdf,   3,  7,  [M],        [C Z N],
+    DCP_ABY,    DCP,    AbsoluteY,          0xdb,   3,  7,  [M],        [C Z N],
+    DCP_INX,    DCP,    IndexedIndirect,    0xc3,   2,  8,  [M],        [C Z N],
+    DCP_INY,    DCP,    IndirectIndexed,    0xd3,   2,  8,  [M],        [C Z N],
+
+    // ISB - Increment and subtract
+    ISB_ZPG,    ISB,    ZeroPage,           0xe7,   2,  5,  [A M],      [C Z V N],
+    ISB_ZPX,    ISB,    ZeroPageX,          0xf7,   2,  6,  [A M],      [C Z V N],
+    ISB_ABS,    ISB,    Absolute,           0xef,   3,  6,  [A M],      [C Z V N],
+    ISB_ABX,    ISB,    AbsoluteX,          0xff,   3,  7,  [A M],      [C Z V N],
+    ISB_ABY,    ISB,    AbsoluteY,          0xfb,   3,  7,  [A M],      [C Z V N],
+    ISB_INX,    ISB,    IndexedIndirect,    0xe3,   2,  8,  [A M],      [C Z V N],
+    ISB_INY,    ISB,    IndirectIndexed,    0xf3,   2,  8,  [A M],      [C Z V N],
+
+    // SBC - Subtract with carry (unofficial variant)
+    SBC_IM0,    SBC,    Immediate,          0xeb,   2,  2,  [A],        [C Z V N],
 }

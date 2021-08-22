@@ -666,7 +666,87 @@ impl CPU {
             }
 
             // ===== Unofficial instructions =====
+            Instruction::SLO => {
+                // Shift
+                let AddressedByteMut {
+                    prefetched_byte: prev,
+                    byte: m,
+                    ..
+                } = self.get_addressed_byte_mut(info.addressing, mem);
+                *m <<= 1;
+                let m = *m;
+                self.flag_carry = (prev & 0x80) != 0;
 
+                // OR
+                self.reg_a |= m;
+                self.update_zn_flags(self.reg_a);
+                0
+            }
+            Instruction::RLA => {
+                // Rotate
+                let carry = self.flag_carry;
+                let AddressedByteMut {
+                    prefetched_byte: prev,
+                    byte: m,
+                    ..
+                } = self.get_addressed_byte_mut(info.addressing, mem);
+                *m <<= 1;
+                if carry {
+                    *m |= 0x01;
+                }
+                let m = *m;
+                self.flag_carry = (prev & 0x80) != 0;
+
+                // AND
+                self.reg_a &= m;
+                self.update_zn_flags(self.reg_a);
+                0
+            }
+            Instruction::SRE => {
+                // Shift
+                let AddressedByteMut {
+                    prefetched_byte: prev,
+                    byte: m,
+                    ..
+                } = self.get_addressed_byte_mut(info.addressing, mem);
+                *m >>= 1;
+                let m = *m;
+                self.flag_carry = (prev & 0x01) != 0;
+
+                // XOR
+                self.reg_a ^= m;
+                self.update_zn_flags(self.reg_a);
+                0
+            }
+            Instruction::RRA => {
+                // Rotate
+                let carry = self.flag_carry;
+                let AddressedByteMut {
+                    prefetched_byte: prev,
+                    byte: m,
+                    ..
+                } = self.get_addressed_byte_mut(info.addressing, mem);
+                *m >>= 1;
+                if carry {
+                    *m |= 0x80;
+                }
+                let m = *m;
+                self.flag_carry = (prev & 0x01) != 0;
+
+                // Add
+                let a = self.reg_a;
+                let mut result = a as u16 + m as u16;
+                if self.flag_carry {
+                    result += 1;
+                }
+                let res_u8 = result as u8;
+                self.reg_a = res_u8;
+                self.update_zn_flags(self.reg_a);
+                self.flag_carry = (result & 0x0100) != 0;
+                // If signs of both inputs is different from the sign of the result
+                self.flag_overflow = ((a ^ res_u8) & (m ^ res_u8) & 0x80) != 0;
+                0
+            }
             Instruction::SAX => {
                 let a = self.reg_a;
                 let x = self.reg_x;
@@ -674,7 +754,6 @@ impl CPU {
                 *m = a & x;
                 0
             }
-
             Instruction::LAX => {
                 let AddressedByte {
                     prefetched_byte: m,
@@ -689,6 +768,37 @@ impl CPU {
                 } else {
                     0
                 }
+            }
+            Instruction::DCP => {
+                // Decrement
+                let m = self.get_addressed_byte_mut(info.addressing, mem).byte;
+                *m = m.wrapping_sub(1);
+                let m = *m;
+                // Compare
+                let a = self.reg_a;
+                self.update_zn_flags(a.wrapping_sub(m));
+                self.flag_carry = a >= m;
+                0
+            }
+            Instruction::ISB => {
+                // Increment
+                let m = self.get_addressed_byte_mut(info.addressing, mem).byte;
+                *m = m.wrapping_add(1);
+                let m = *m;
+                // Subtract
+                let a = self.reg_a;
+                // A - M - (1 - C) == A + !M + C
+                let mut result = (a as u16).wrapping_add(!(m as u16));
+                if self.flag_carry {
+                    result = result.wrapping_add(1);
+                }
+                let res_u8 = result as u8;
+                self.reg_a = res_u8;
+                self.update_zn_flags(self.reg_a);
+                self.flag_carry = (result & 0x0100) == 0;
+                // If signs of both inputs is different from the sign of the result
+                self.flag_overflow = ((a ^ res_u8) & (!m ^ res_u8) & 0x80) != 0;
+                0
             }
 
             // ===== Illegal =====
