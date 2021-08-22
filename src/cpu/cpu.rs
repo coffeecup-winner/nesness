@@ -1,4 +1,7 @@
-use crate::cpu::rp2a03::{flags, info, AddressingMode, Instruction};
+use crate::{
+    cpu::rp2a03::{flags, info, AddressingMode, Instruction},
+    mem::Memory,
+};
 
 #[derive(Debug, Default, Clone)]
 pub struct CPU {
@@ -70,7 +73,7 @@ impl CPU {
         Self::default()
     }
 
-    pub fn reset(&mut self, mem: &[u8]) {
+    pub fn reset(&mut self, mem: &dyn Memory) {
         // Detailed in https://www.pagetable.com/?p=410
         // Internals of BRK/IRQ/NMI/RESET on a MOS 6502 by Michael Steil
         *self = Self::default();
@@ -78,7 +81,7 @@ impl CPU {
         self.pc = CPU::read_addr(mem, 0xfffc);
     }
 
-    pub fn run_one(&mut self, mem: &mut [u8]) -> u8 {
+    pub fn run_one(&mut self, mem: &mut dyn Memory) -> u8 {
         #[cfg(test)]
         self.__init_checks();
         let opcode = self.get_next_byte(mem);
@@ -681,7 +684,7 @@ impl CPU {
         self.flag_negative = (p & flags::N) != 0;
     }
 
-    fn get_addressed_byte(&mut self, mode: AddressingMode, mem: &mut [u8]) -> AddressedByte {
+    fn get_addressed_byte(&mut self, mode: AddressingMode, mem: &dyn Memory) -> AddressedByte {
         match mode {
             AddressingMode::Implicit => {
                 panic!("Implicit addressing mode must be handled by the caller")
@@ -696,32 +699,32 @@ impl CPU {
                 {
                     self.__insn_bytes_read += 1;
                 }
-                AddressedByte::new(addr, mem[addr as usize], false)
+                AddressedByte::new(addr, mem[addr], false)
             }
             AddressingMode::ZeroPage => {
                 let addr = self.get_next_byte(mem) as u16;
-                AddressedByte::new(addr, mem[addr as usize], false)
+                AddressedByte::new(addr, mem[addr], false)
             }
             AddressingMode::ZeroPageX => {
                 let addr = (self.get_next_byte(mem) + self.reg_x) as u16;
-                AddressedByte::new(addr, mem[addr as usize], false)
+                AddressedByte::new(addr, mem[addr], false)
             }
             AddressingMode::ZeroPageY => {
                 let addr = (self.get_next_byte(mem) + self.reg_y) as u16;
-                AddressedByte::new(addr, mem[addr as usize], false)
+                AddressedByte::new(addr, mem[addr], false)
             }
             AddressingMode::Relative => {
                 let offset = self.get_next_byte(mem) as i8;
                 let offset_u16 = (0x100 + offset as i16) as u16;
                 let addr = (self.pc - 0x100 + offset_u16) as u16;
                 let has_crossed_page = (self.pc & 0x0100) != (addr & 0x0100);
-                AddressedByte::new(addr, mem[addr as usize], has_crossed_page)
+                AddressedByte::new(addr, mem[addr], has_crossed_page)
             }
             AddressingMode::Absolute => {
                 let lo = self.get_next_byte(mem);
                 let hi = self.get_next_byte(mem);
                 let addr = ((hi as u16) << 8) + lo as u16;
-                AddressedByte::new(addr, mem[addr as usize], false)
+                AddressedByte::new(addr, mem[addr], false)
             }
             AddressingMode::AbsoluteX => {
                 let lo = self.get_next_byte(mem);
@@ -729,7 +732,7 @@ impl CPU {
                 let addr_base = ((hi as u16) << 8) + lo as u16;
                 let addr = addr_base + self.reg_x as u16;
                 let has_crossed_page = self.reg_x > addr as u8;
-                AddressedByte::new(addr, mem[addr as usize], has_crossed_page)
+                AddressedByte::new(addr, mem[addr], has_crossed_page)
             }
             AddressingMode::AbsoluteY => {
                 let lo = self.get_next_byte(mem);
@@ -737,26 +740,26 @@ impl CPU {
                 let addr_base = ((hi as u16) << 8) + lo as u16;
                 let addr = addr_base + self.reg_y as u16;
                 let has_crossed_page = self.reg_y > addr as u8;
-                AddressedByte::new(addr, mem[addr as usize], has_crossed_page)
+                AddressedByte::new(addr, mem[addr], has_crossed_page)
             }
             AddressingMode::Indirect => {
                 let lo = self.get_next_byte(mem);
                 let hi = self.get_next_byte(mem);
                 let addr_indirect = ((hi as u16) << 8) + lo as u16;
                 let addr = CPU::read_addr(mem, addr_indirect);
-                AddressedByte::new(addr, mem[addr as usize], false)
+                AddressedByte::new(addr, mem[addr], false)
             }
             AddressingMode::IndexedIndirect => {
                 let zero_page_addr = (self.get_next_byte(mem) + self.reg_x) as u16;
                 let addr = CPU::read_addr(mem, zero_page_addr);
-                AddressedByte::new(addr, mem[addr as usize], false)
+                AddressedByte::new(addr, mem[addr], false)
             }
             AddressingMode::IndirectIndexed => {
                 let zero_page_addr = self.get_next_byte(mem);
                 let addr_base = CPU::read_addr(mem, zero_page_addr as u16);
                 let addr = addr_base + self.reg_y as u16;
                 let has_crossed_page = self.reg_y > addr as u8;
-                AddressedByte::new(addr, mem[addr as usize], has_crossed_page)
+                AddressedByte::new(addr, mem[addr], has_crossed_page)
             }
         }
     }
@@ -764,7 +767,7 @@ impl CPU {
     fn get_addressed_byte_mut<'a>(
         &'a mut self,
         mode: AddressingMode,
-        mem: &'a mut [u8],
+        mem: &'a mut dyn Memory,
     ) -> AddressedByteMut<'a> {
         match mode {
             AddressingMode::Implicit => {
@@ -776,15 +779,15 @@ impl CPU {
             }
             AddressingMode::ZeroPage => {
                 let addr = self.get_next_byte(mem) as u16;
-                AddressedByteMut::new(&mut mem[addr as usize])
+                AddressedByteMut::new(&mut mem[addr])
             }
             AddressingMode::ZeroPageX => {
                 let addr = (self.get_next_byte(mem) + self.reg_x) as u16;
-                AddressedByteMut::new(&mut mem[addr as usize])
+                AddressedByteMut::new(&mut mem[addr])
             }
             AddressingMode::ZeroPageY => {
                 let addr = (self.get_next_byte(mem) + self.reg_y) as u16;
-                AddressedByteMut::new(&mut mem[addr as usize])
+                AddressedByteMut::new(&mut mem[addr])
             }
             AddressingMode::Relative => {
                 panic!("Relative addressing mode must be handled by the caller")
@@ -793,45 +796,45 @@ impl CPU {
                 let lo = self.get_next_byte(mem);
                 let hi = self.get_next_byte(mem);
                 let addr = ((hi as u16) << 8) + lo as u16;
-                AddressedByteMut::new(&mut mem[addr as usize])
+                AddressedByteMut::new(&mut mem[addr])
             }
             AddressingMode::AbsoluteX => {
                 let lo = self.get_next_byte(mem);
                 let hi = self.get_next_byte(mem);
                 let addr_base = ((hi as u16) << 8) + lo as u16;
                 let addr = addr_base + self.reg_x as u16;
-                AddressedByteMut::new(&mut mem[addr as usize])
+                AddressedByteMut::new(&mut mem[addr])
             }
             AddressingMode::AbsoluteY => {
                 let lo = self.get_next_byte(mem);
                 let hi = self.get_next_byte(mem);
                 let addr_base = ((hi as u16) << 8) + lo as u16;
                 let addr = addr_base + self.reg_y as u16;
-                AddressedByteMut::new(&mut mem[addr as usize])
+                AddressedByteMut::new(&mut mem[addr])
             }
             AddressingMode::Indirect => {
                 let lo = self.get_next_byte(mem);
                 let hi = self.get_next_byte(mem);
                 let addr_indirect = ((hi as u16) << 8) + lo as u16;
                 let addr = CPU::read_addr(mem, addr_indirect);
-                AddressedByteMut::new(&mut mem[addr as usize])
+                AddressedByteMut::new(&mut mem[addr])
             }
             AddressingMode::IndexedIndirect => {
                 let zero_page_addr = (self.get_next_byte(mem) + self.reg_x) as u16;
                 let addr = CPU::read_addr(mem, zero_page_addr);
-                AddressedByteMut::new(&mut mem[addr as usize])
+                AddressedByteMut::new(&mut mem[addr])
             }
             AddressingMode::IndirectIndexed => {
                 let zero_page_addr = self.get_next_byte(mem);
                 let addr_base = CPU::read_addr(mem, zero_page_addr as u16);
                 let addr = addr_base + self.reg_y as u16;
-                AddressedByteMut::new(&mut mem[addr as usize])
+                AddressedByteMut::new(&mut mem[addr])
             }
         }
     }
 
-    fn get_next_byte(&mut self, mem: &[u8]) -> u8 {
-        let byte = mem[self.pc as usize];
+    fn get_next_byte(&mut self, mem: &dyn Memory) -> u8 {
+        let byte = mem[self.pc];
         self.pc += 1;
         #[cfg(test)]
         {
@@ -840,30 +843,30 @@ impl CPU {
         byte
     }
 
-    fn push_byte(&mut self, mem: &mut [u8], b: u8) {
-        mem[(0x0100 + self.reg_s as u16) as usize] = b;
+    fn push_byte(&mut self, mem: &mut dyn Memory, b: u8) {
+        mem[0x0100 + self.reg_s as u16] = b;
         self.reg_s = self.reg_s.wrapping_sub(1);
     }
 
-    fn pull_byte(&mut self, mem: &[u8]) -> u8 {
+    fn pull_byte(&mut self, mem: &dyn Memory) -> u8 {
         self.reg_s = self.reg_s.wrapping_add(1);
-        return mem[(0x0100 + self.reg_s as u16) as usize];
+        return mem[0x0100 + self.reg_s as u16];
     }
 
-    fn push_addr(&mut self, mem: &mut [u8], addr: u16) {
+    fn push_addr(&mut self, mem: &mut dyn Memory, addr: u16) {
         self.push_byte(mem, (addr >> 8) as u8);
         self.push_byte(mem, addr as u8);
     }
 
-    fn pull_addr(&mut self, mem: &[u8]) -> u16 {
+    fn pull_addr(&mut self, mem: &dyn Memory) -> u16 {
         let mut addr = self.pull_byte(mem) as u16;
         addr |= (self.pull_byte(mem) as u16) << 8;
         addr
     }
 
-    fn read_addr(mem: &[u8], addr: u16) -> u16 {
-        let mut result = mem[addr as usize] as u16;
-        result |= (mem[addr as usize + 1] as u16) << 8;
+    fn read_addr(mem: &dyn Memory, addr: u16) -> u16 {
+        let mut result = mem[addr] as u16;
+        result |= (mem[addr + 1] as u16) << 8;
         result
     }
 

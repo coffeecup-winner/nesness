@@ -13,7 +13,17 @@ mod system;
 // These exports are used by submodules
 use super::*;
 use rp2a03::opcodes::*;
-use crate::assert_zn;
+use crate::{assert_zn, mem::Memory};
+
+impl Memory for Vec<u8> {
+    fn index(&self, addr: u16) -> &u8 {
+        &self[addr as usize]
+    }
+
+    fn index_mut(&mut self, addr: u16) -> &mut u8 {
+        &mut self[addr as usize]
+    }
+}
 
 #[macro_export]
 macro_rules! assert_zn {

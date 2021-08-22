@@ -1,4 +1,5 @@
 mod cpu;
+mod mem;
 
 fn main() {
     for opcode in &cpu::rp2a03::opcodes::OPCODES[..] {
