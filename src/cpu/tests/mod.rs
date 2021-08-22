@@ -1,3 +1,4 @@
+mod arithmetics;
 mod branches;
 mod inc_dec;
 mod jumps;

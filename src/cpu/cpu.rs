@@ -286,16 +286,17 @@ impl CPU {
                     has_crossed_page,
                     ..
                 } = self.get_addressed_byte(info.addressing, ram);
-                let mut result = a as u16 - m as u16;
-                if !self.flag_carry {
-                    result -= 1;
+                // A - M - (1 - C) == A + !M + C
+                let mut result = (a as u16).wrapping_add(!(m as u16));
+                if self.flag_carry {
+                    result = result.wrapping_add(1);
                 }
                 let res_u8 = result as u8;
                 self.reg_a = res_u8;
                 self.update_zn_flags(self.reg_a);
                 self.flag_carry = (result & 0x0100) == 0;
                 // If signs of both inputs is different from the sign of the result
-                self.flag_overflow = ((a ^ res_u8) & (m ^ res_u8) & 0x80) != 0;
+                self.flag_overflow = ((a ^ res_u8) & (!m ^ res_u8) & 0x80) != 0;
                 if has_crossed_page {
                     1
                 } else {
@@ -309,7 +310,7 @@ impl CPU {
                     has_crossed_page,
                     ..
                 } = self.get_addressed_byte(info.addressing, ram);
-                self.update_zn_flags(a - m);
+                self.update_zn_flags(a.wrapping_sub(m));
                 self.flag_carry = a >= m;
                 if has_crossed_page {
                     1
@@ -322,7 +323,7 @@ impl CPU {
                 let m = self
                     .get_addressed_byte(info.addressing, ram)
                     .prefetched_byte;
-                self.update_zn_flags(x - m);
+                self.update_zn_flags(x.wrapping_sub(m));
                 self.flag_carry = x >= m;
                 0
             }
@@ -331,7 +332,7 @@ impl CPU {
                 let m = self
                     .get_addressed_byte(info.addressing, ram)
                     .prefetched_byte;
-                self.update_zn_flags(y - m);
+                self.update_zn_flags(y.wrapping_sub(m));
                 self.flag_carry = y >= m;
                 0
             }
