@@ -665,6 +665,24 @@ impl CPU {
                 0
             }
 
+            // ===== Unofficial instructions =====
+
+            Instruction::LAX => {
+                let AddressedByte {
+                    prefetched_byte: m,
+                    has_crossed_page,
+                    ..
+                } = self.get_addressed_byte(info.addressing, mem);
+                self.reg_a = m;
+                self.reg_x = m;
+                self.update_zn_flags(m);
+                if has_crossed_page {
+                    1
+                } else {
+                    0
+                }
+            }
+
             // ===== Illegal =====
             Instruction::ILL => panic!("Illegal instruction"),
         };

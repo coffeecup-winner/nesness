@@ -79,6 +79,10 @@ pub enum Instruction {
     TXA, // Transfer X to accumulator
     TXS, // Transfer X to stack pointer
     TYA, // Transfer Y to accumulator
+
+    // ----- Unofficial opcodes -----
+
+    LAX, // Load accumulator and X
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -445,31 +449,29 @@ opcodes! {
     TYA_IMP,    TYA,    Implicit,           0x98,   1,  2,  [A],        [Z N],
 
     // -------------------- Unofficial instructions below --------------------
-
-    // Instructions below are ordered by lo nibble first, then hi nibble
     // See: http://www.oxyron.de/html/opcodes02.html
 
-    // Unofficial NOPs
-    NOP_IM0,    NOP,    Immediate,          0x80,   2,  2,  [],         [],
-    NOP_IM1,    NOP,    Immediate,          0x82,   2,  2,  [],         [],
-    NOP_IM2,    NOP,    Immediate,          0xc2,   2,  2,  [],         [],
-    NOP_IM3,    NOP,    Immediate,          0xe2,   2,  2,  [],         [],
-    NOP_ZP0,    NOP,    ZeroPage,           0x04,   2,  3,  [],         [],
-    NOP_ZX0,    NOP,    ZeroPageX,          0x14,   2,  4,  [],         [],
-    NOP_ZX1,    NOP,    ZeroPageX,          0x34,   2,  4,  [],         [],
-    NOP_ZP1,    NOP,    ZeroPage,           0x44,   2,  3,  [],         [],
-    NOP_ZX2,    NOP,    ZeroPage,           0x54,   2,  4,  [],         [],
-    NOP_ZP2,    NOP,    ZeroPage,           0x64,   2,  3,  [],         [],
-    NOP_ZX3,    NOP,    ZeroPage,           0x74,   2,  4,  [],         [],
-    NOP_ZX4,    NOP,    ZeroPage,           0xd4,   2,  4,  [],         [],
-    NOP_ZX5,    NOP,    ZeroPage,           0xf4,   2,  4,  [],         [],
-    NOP_IM4,    NOP,    Immediate,          0x89,   2,  2,  [],         [],
+    // NOP - No operation (unofficial multi-byte and multi-cycle variants)
     NOP_IP0,    NOP,    Implicit,           0x1a,   1,  2,  [],         [],
     NOP_IP1,    NOP,    Implicit,           0x3a,   1,  2,  [],         [],
     NOP_IP2,    NOP,    Implicit,           0x5a,   1,  2,  [],         [],
     NOP_IP3,    NOP,    Implicit,           0x7a,   1,  2,  [],         [],
     NOP_IP4,    NOP,    Implicit,           0xda,   1,  2,  [],         [],
     NOP_IP5,    NOP,    Implicit,           0xfa,   1,  2,  [],         [],
+    NOP_IM0,    NOP,    Immediate,          0x80,   2,  2,  [],         [],
+    NOP_IM1,    NOP,    Immediate,          0x82,   2,  2,  [],         [],
+    NOP_IM2,    NOP,    Immediate,          0x89,   2,  2,  [],         [],
+    NOP_IM3,    NOP,    Immediate,          0xc2,   2,  2,  [],         [],
+    NOP_IM4,    NOP,    Immediate,          0xe2,   2,  2,  [],         [],
+    NOP_ZP0,    NOP,    ZeroPage,           0x04,   2,  3,  [],         [],
+    NOP_ZP1,    NOP,    ZeroPage,           0x44,   2,  3,  [],         [],
+    NOP_ZP2,    NOP,    ZeroPage,           0x64,   2,  3,  [],         [],
+    NOP_ZX0,    NOP,    ZeroPageX,          0x14,   2,  4,  [],         [],
+    NOP_ZX1,    NOP,    ZeroPageX,          0x34,   2,  4,  [],         [],
+    NOP_ZX2,    NOP,    ZeroPageX,          0x54,   2,  4,  [],         [],
+    NOP_ZX3,    NOP,    ZeroPageX,          0x74,   2,  4,  [],         [],
+    NOP_ZX4,    NOP,    ZeroPageX,          0xd4,   2,  4,  [],         [],
+    NOP_ZX5,    NOP,    ZeroPageX,          0xf4,   2,  4,  [],         [],
     NOP_AB0,    NOP,    Absolute,           0x0c,   3,  4,  [],         [],
     NOP_AX0,    NOP,    AbsoluteX,          0x1c,   3,  4,  [],         [],
     NOP_AX1,    NOP,    AbsoluteX,          0x3c,   3,  4,  [],         [],
@@ -477,4 +479,13 @@ opcodes! {
     NOP_AX3,    NOP,    AbsoluteX,          0x7c,   3,  4,  [],         [],
     NOP_AX4,    NOP,    AbsoluteX,          0xdc,   3,  4,  [],         [],
     NOP_AX5,    NOP,    AbsoluteX,          0xfc,   3,  4,  [],         [],
+
+    // LAX - Load accumulator and X
+    LAX_IMM,    LAX,    Immediate,          0xab,   2,  2,  [A X],      [Z N], // UNSTABLE
+    LAX_ZPG,    LAX,    ZeroPage,           0xa7,   2,  3,  [A X],      [Z N],
+    LAX_ZPY,    LAX,    ZeroPageY,          0xb7,   2,  4,  [A X],      [Z N],
+    LAX_ABS,    LAX,    Absolute,           0xaf,   3,  4,  [A X],      [Z N],
+    LAX_ABY,    LAX,    AbsoluteY,          0xbf,   3,  4,  [A X],      [Z N],
+    LAX_INX,    LAX,    IndexedIndirect,    0xa3,   2,  6,  [A X],      [Z N],
+    LAX_INY,    LAX,    IndirectIndexed,    0xb3,   2,  5,  [A X],      [Z N],
 }
