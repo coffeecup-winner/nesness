@@ -1,5 +1,6 @@
 mod cpu;
 mod mem;
+mod rom;
 
 fn main() {
     for opcode in &cpu::rp2a03::opcodes::OPCODES[..] {
