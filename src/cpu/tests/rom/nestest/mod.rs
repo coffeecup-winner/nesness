@@ -41,4 +41,8 @@ fn test() {
 
         total_cycles += cpu.run_one(&mut mmap) as u32;
     }
+
+    // Verify internal error codes
+    assert_eq!(0, mmap.read_u8(2));
+    assert_eq!(0, mmap.read_u8(3));
 }

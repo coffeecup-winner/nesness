@@ -57,10 +57,8 @@ pub struct MemoryMap<'a> {
     ppuaddr: u8,
     ppudata: u8,
 
-    // APU and I/O registers - 0x4000..0x4017
-    // TODO
-
-    // Unused/disabled - 0x4018..0x401f
+    // APU and I/O registers - 0x4000..0x4020
+    apu: [u8; 32],
 
     // Cartridge space - 0x4020..0xffff
     mapper: Box<dyn Mapper>,
@@ -71,7 +69,7 @@ impl<'a> MemoryMap<'a> {
     #[allow(dead_code)]
     pub fn new(mapper: u8, prg_rom: &'a mut [Vec<u8>]) -> Self {
         MemoryMap {
-            ram: [0xcc; 0x0800],
+            ram: [0x00; 0x0800],
             ppuctrl: 0,
             ppumask: 0,
             ppustatus: 0,
@@ -80,6 +78,7 @@ impl<'a> MemoryMap<'a> {
             ppuscroll: 0,
             ppuaddr: 0,
             ppudata: 0,
+            apu: [0x00; 32],
             mapper: mappers::get_mapper(mapper),
             prg_rom,
         }
@@ -102,7 +101,7 @@ impl<'a> Memory for MemoryMap<'a> {
                 _ => unreachable!(),
             },
             4 if (addr as u8) < 0x20 => {
-                todo!()
+                &self.apu[addr as u8 as usize]
             }
             _ => self.mapper.map(addr, &self.prg_rom),
         }
@@ -123,7 +122,7 @@ impl<'a> Memory for MemoryMap<'a> {
                 _ => unreachable!(),
             },
             4 if (addr as u8) < 0x20 => {
-                panic!("Unmapped space access")
+                &mut self.apu[addr as u8 as usize]
             }
             _ => self.mapper.map_mut(addr, &mut self.prg_rom),
         }
