@@ -13,7 +13,7 @@ pub mod flags {
     pub const C: u8 = 0x01; // Carry
     pub const Z: u8 = 0x02; // Zero
     pub const I: u8 = 0x04; // Interrupt disable
-                            // No D flag in RP2A03
+    pub const D: u8 = 0x08; // Decimal mode (unsupported by HW)
     pub const B: u8 = 0x10; // Break command
                             // No bit 5 (always true)
     pub const V: u8 = 0x40; // Overflow
@@ -37,7 +37,7 @@ pub enum Instruction {
     BVC, // Branch if overflow clear
     BVS, // Branch if overflow set
     CLC, // Clear carry flag
-    // CLD, // Clear decimal mode <- not present on RP2A03
+    CLD, // Clear decimal mode
     CLI, // Clear interrupt disable
     CLV, // Clear overflow flag
     CMP, // Compare
@@ -68,7 +68,7 @@ pub enum Instruction {
     RTS, // Return from subroutine
     SBC, // Subtract with carry
     SEC, // Set carry flag
-    // SED, // Set decimal mode <- not present on RP2A03
+    SED, // Set decimal mode
     SEI, // Set interrupt disable
     STA, // Store accumulator
     STX, // Store X register
@@ -243,7 +243,7 @@ opcodes! {
     CLC_IMP,    CLC,    Implicit,           0x18,   1,  2,  [],         [C],
 
     // CLD - Clear decimal mode
-    // Is not present on 2A03 (0x   d8)
+    CLD_IMP,    CLD,    Implicit,           0xd8,   1,  2,  [],         [D],
 
     // CLI - Clear interrupt disable
     CLI_IMP,    CLI,    Implicit,           0x58,   1,  2,  [],         [I],
@@ -366,7 +366,7 @@ opcodes! {
     PLA_IMP,    PLA,    Implicit,           0x68,   1,  4,  [S A],      [Z N],
 
     // PLP - Pull processor status flags
-    PLP_IMP,    PLP,    Implicit,           0x28,   1,  4,  [S],        [C Z I B V N],
+    PLP_IMP,    PLP,    Implicit,           0x28,   1,  4,  [S],        [C Z I D B V N],
 
     // ROL - Rotate left
     ROL_ACC,    ROL,    Accumulator,        0x2a,   1,  2,  [A M],      [C Z N],
@@ -383,7 +383,7 @@ opcodes! {
     ROR_ABX,    ROR,    AbsoluteX,          0x7e,   3,  7,  [A M],      [C Z N],
 
     // RTI - Return from interrupt
-    RTI_IMP,    RTI,    Implicit,           0x40,   1,  6,  [P S],      [C Z I B V N],
+    RTI_IMP,    RTI,    Implicit,           0x40,   1,  6,  [P S],      [C Z I D B V N],
 
     // RTS - Return from subroutine
     RTS_IMP,    RTS,    Implicit,           0x60,   1,  6,  [P S],      [],
@@ -402,7 +402,7 @@ opcodes! {
     SEC_IMP,    SEC,    Implicit,           0x38,   1,  2,  [],         [C],
 
     // SED - Set decimal mode
-    // Is not present on 2A03 (0xf8)
+    SED_IMP,    SED,    Implicit,           0xf8,   1,  2,  [],         [D],
 
     // SEI - Set interrupt disable
     SEI_IMP,    SEI,    Implicit,           0x78,   1,  2,  [],         [I],

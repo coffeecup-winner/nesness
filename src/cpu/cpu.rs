@@ -16,6 +16,7 @@ pub struct CPU {
     pub flag_carry: bool,
     pub flag_zero: bool,
     pub flag_interrupt_disable: bool,
+    pub flag_decimal_mode: bool,
     pub flag_break: bool,
     pub flag_overflow: bool,
     pub flag_negative: bool,
@@ -77,6 +78,7 @@ impl CPU {
         // Detailed in https://www.pagetable.com/?p=410
         // Internals of BRK/IRQ/NMI/RESET on a MOS 6502 by Michael Steil
         *self = Self::default();
+        self.flag_interrupt_disable = true;
         self.reg_s = self.reg_s.wrapping_sub(3);
         self.pc = mem.read_u16(0xfffc);
     }
@@ -186,7 +188,8 @@ impl CPU {
                 0
             }
             Instruction::PHP => {
-                let p = self.pack_flags();
+                let mut p = self.pack_flags();
+                p |= flags::B; // B is set for PHP
                 self.push_byte(mem, p);
                 0
             }
@@ -196,7 +199,8 @@ impl CPU {
                 0
             }
             Instruction::PLP => {
-                let p = self.pull_byte(mem);
+                let mut p = self.pull_byte(mem);
+                p &= !flags::B; // B is cleared for PLA
                 self.unpack_flags(p);
                 0
             }
@@ -605,6 +609,10 @@ impl CPU {
                 self.flag_carry = false;
                 0
             }
+            Instruction::CLD => {
+                self.flag_decimal_mode = false;
+                0
+            }
             Instruction::CLI => {
                 self.flag_interrupt_disable = false;
                 0
@@ -615,6 +623,10 @@ impl CPU {
             }
             Instruction::SEC => {
                 self.flag_carry = true;
+                0
+            }
+            Instruction::SED => {
+                self.flag_decimal_mode = true;
                 0
             }
             Instruction::SEI => {
@@ -652,7 +664,7 @@ impl CPU {
         self.flag_negative = (val & 0x80) != 0;
     }
 
-    fn pack_flags(&self) -> u8 {
+    pub fn pack_flags(&self) -> u8 {
         let mut p = 0x20; // Bit 5 is always set
         if self.flag_carry {
             p |= flags::C;
@@ -662,6 +674,9 @@ impl CPU {
         }
         if self.flag_interrupt_disable {
             p |= flags::I;
+        }
+        if self.flag_decimal_mode {
+            p |= flags::D;
         }
         if self.flag_break {
             p |= flags::B;
@@ -679,6 +694,7 @@ impl CPU {
         self.flag_carry = (p & flags::C) != 0;
         self.flag_zero = (p & flags::Z) != 0;
         self.flag_interrupt_disable = (p & flags::I) != 0;
+        self.flag_decimal_mode = (p & flags::D) != 0;
         self.flag_break = (p & flags::B) != 0;
         self.flag_overflow = (p & flags::V) != 0;
         self.flag_negative = (p & flags::N) != 0;
@@ -701,18 +717,6 @@ impl CPU {
                 }
                 AddressedByte::new(addr, mem[addr], false)
             }
-            AddressingMode::ZeroPage => {
-                let addr = self.get_next_byte(mem) as u16;
-                AddressedByte::new(addr, mem[addr], false)
-            }
-            AddressingMode::ZeroPageX => {
-                let addr = (self.get_next_byte(mem) + self.reg_x) as u16;
-                AddressedByte::new(addr, mem[addr], false)
-            }
-            AddressingMode::ZeroPageY => {
-                let addr = (self.get_next_byte(mem) + self.reg_y) as u16;
-                AddressedByte::new(addr, mem[addr], false)
-            }
             AddressingMode::Relative => {
                 let offset = self.get_next_byte(mem) as i8;
                 let offset_u16 = (0x100 + offset as i16) as u16;
@@ -720,44 +724,22 @@ impl CPU {
                 let has_crossed_page = (self.pc & 0x0100) != (addr & 0x0100);
                 AddressedByte::new(addr, mem[addr], has_crossed_page)
             }
-            AddressingMode::Absolute => {
-                let lo = self.get_next_byte(mem);
-                let hi = self.get_next_byte(mem);
-                let addr = ((hi as u16) << 8) + lo as u16;
+            AddressingMode::ZeroPage
+            | AddressingMode::ZeroPageX
+            | AddressingMode::ZeroPageY
+            | AddressingMode::Absolute
+            | AddressingMode::Indirect
+            | AddressingMode::IndexedIndirect => {
+                let addr = self.get_address(mode, mem);
                 AddressedByte::new(addr, mem[addr], false)
             }
             AddressingMode::AbsoluteX => {
-                let lo = self.get_next_byte(mem);
-                let hi = self.get_next_byte(mem);
-                let addr_base = ((hi as u16) << 8) + lo as u16;
-                let addr = addr_base + self.reg_x as u16;
+                let addr = self.get_address(mode, mem);
                 let has_crossed_page = self.reg_x > addr as u8;
                 AddressedByte::new(addr, mem[addr], has_crossed_page)
             }
-            AddressingMode::AbsoluteY => {
-                let lo = self.get_next_byte(mem);
-                let hi = self.get_next_byte(mem);
-                let addr_base = ((hi as u16) << 8) + lo as u16;
-                let addr = addr_base + self.reg_y as u16;
-                let has_crossed_page = self.reg_y > addr as u8;
-                AddressedByte::new(addr, mem[addr], has_crossed_page)
-            }
-            AddressingMode::Indirect => {
-                let lo = self.get_next_byte(mem);
-                let hi = self.get_next_byte(mem);
-                let addr_indirect = ((hi as u16) << 8) + lo as u16;
-                let addr = mem.read_u16(addr_indirect);
-                AddressedByte::new(addr, mem[addr], false)
-            }
-            AddressingMode::IndexedIndirect => {
-                let zero_page_addr = (self.get_next_byte(mem) + self.reg_x) as u16;
-                let addr = mem.read_u16(zero_page_addr);
-                AddressedByte::new(addr, mem[addr], false)
-            }
-            AddressingMode::IndirectIndexed => {
-                let zero_page_addr = self.get_next_byte(mem);
-                let addr_base = mem.read_u16(zero_page_addr as u16);
-                let addr = addr_base + self.reg_y as u16;
+            AddressingMode::AbsoluteY | AddressingMode::IndirectIndexed => {
+                let addr = self.get_address(mode, mem);
                 let has_crossed_page = self.reg_y > addr as u8;
                 AddressedByte::new(addr, mem[addr], has_crossed_page)
             }
@@ -773,62 +755,90 @@ impl CPU {
             AddressingMode::Implicit => {
                 panic!("Implicit addressing mode must be handled by the caller")
             }
-            AddressingMode::Accumulator => AddressedByteMut::new(&mut self.reg_a),
             AddressingMode::Immediate => {
                 panic!("Can't address immediate as mutable")
             }
-            AddressingMode::ZeroPage => {
-                let addr = self.get_next_byte(mem) as u16;
+            AddressingMode::Relative => {
+                panic!("Relative addressing mode must be handled by the caller")
+            }
+            AddressingMode::Indirect => {
+                panic!("Don't need to address indirect as mutable")
+            }
+            AddressingMode::Accumulator => AddressedByteMut::new(&mut self.reg_a),
+            AddressingMode::ZeroPage
+            | AddressingMode::ZeroPageX
+            | AddressingMode::ZeroPageY
+            | AddressingMode::Absolute
+            | AddressingMode::AbsoluteX
+            | AddressingMode::AbsoluteY
+            | AddressingMode::IndexedIndirect
+            | AddressingMode::IndirectIndexed => {
+                let addr = self.get_address(mode, mem);
                 AddressedByteMut::new(&mut mem[addr])
             }
-            AddressingMode::ZeroPageX => {
-                let addr = (self.get_next_byte(mem) + self.reg_x) as u16;
-                AddressedByteMut::new(&mut mem[addr])
+        }
+    }
+
+    fn get_address(&mut self, mode: AddressingMode, mem: &dyn Memory) -> u16 {
+        match mode {
+            AddressingMode::Implicit => {
+                panic!("Implicit addressing mode must be handled by the caller")
             }
-            AddressingMode::ZeroPageY => {
-                let addr = (self.get_next_byte(mem) + self.reg_y) as u16;
-                AddressedByteMut::new(&mut mem[addr])
+            AddressingMode::Accumulator => {
+                panic!("Accumulator addressing mode must be handled by the caller")
             }
+            AddressingMode::Immediate => {
+                panic!("Immediate addressing mode must be handled by the caller")
+            }
+            AddressingMode::ZeroPage => self.get_next_byte(mem) as u16,
+            AddressingMode::ZeroPageX => (self.get_next_byte(mem).wrapping_add(self.reg_x)) as u16,
+            AddressingMode::ZeroPageY => (self.get_next_byte(mem).wrapping_add(self.reg_y)) as u16,
             AddressingMode::Relative => {
                 panic!("Relative addressing mode must be handled by the caller")
             }
             AddressingMode::Absolute => {
                 let lo = self.get_next_byte(mem);
                 let hi = self.get_next_byte(mem);
-                let addr = ((hi as u16) << 8) + lo as u16;
-                AddressedByteMut::new(&mut mem[addr])
+                ((hi as u16) << 8) + lo as u16
             }
             AddressingMode::AbsoluteX => {
                 let lo = self.get_next_byte(mem);
                 let hi = self.get_next_byte(mem);
                 let addr_base = ((hi as u16) << 8) + lo as u16;
-                let addr = addr_base + self.reg_x as u16;
-                AddressedByteMut::new(&mut mem[addr])
+                addr_base.wrapping_add(self.reg_x as u16)
             }
             AddressingMode::AbsoluteY => {
                 let lo = self.get_next_byte(mem);
                 let hi = self.get_next_byte(mem);
                 let addr_base = ((hi as u16) << 8) + lo as u16;
-                let addr = addr_base + self.reg_y as u16;
-                AddressedByteMut::new(&mut mem[addr])
+                addr_base.wrapping_add(self.reg_y as u16)
             }
             AddressingMode::Indirect => {
                 let lo = self.get_next_byte(mem);
                 let hi = self.get_next_byte(mem);
-                let addr_indirect = ((hi as u16) << 8) + lo as u16;
-                let addr = mem.read_u16(addr_indirect);
-                AddressedByteMut::new(&mut mem[addr])
+                // Note: replicating bug in 6502 where the addresses crossing
+                // the page boundary read from the same page instead of the next
+                let addr_lo = ((hi as u16) << 8) + lo as u16;
+                let addr_hi = ((hi as u16) << 8) + (lo.wrapping_add(1)) as u16;
+                let mut addr = mem[addr_lo] as u16;
+                addr |= (mem[addr_hi] as u16) << 8;
+                addr
             }
             AddressingMode::IndexedIndirect => {
-                let zero_page_addr = (self.get_next_byte(mem) + self.reg_x) as u16;
-                let addr = mem.read_u16(zero_page_addr);
-                AddressedByteMut::new(&mut mem[addr])
+                // Note: address reads from zero page are wrapping
+                let zero_page_addr_lo = self.get_next_byte(mem).wrapping_add(self.reg_x);
+                let zero_page_addr_hi = zero_page_addr_lo.wrapping_add(1);
+                let mut addr = mem[zero_page_addr_lo as u16] as u16;
+                addr |= (mem[zero_page_addr_hi as u16] as u16) << 8;
+                addr
             }
             AddressingMode::IndirectIndexed => {
-                let zero_page_addr = self.get_next_byte(mem);
-                let addr_base = mem.read_u16(zero_page_addr as u16);
-                let addr = addr_base + self.reg_y as u16;
-                AddressedByteMut::new(&mut mem[addr])
+                // Note: address reads from zero page are wrapping
+                let zero_page_addr_lo = self.get_next_byte(mem);
+                let zero_page_addr_hi = zero_page_addr_lo.wrapping_add(1);
+                let mut addr_base = mem[zero_page_addr_lo as u16] as u16;
+                addr_base |= (mem[zero_page_addr_hi as u16] as u16) << 8;
+                addr_base.wrapping_add(self.reg_y as u16)
             }
         }
     }

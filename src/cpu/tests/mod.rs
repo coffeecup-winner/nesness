@@ -10,10 +10,12 @@ mod stack;
 mod status_flags;
 mod system;
 
+mod rom;
+
 // These exports are used by submodules
 use super::*;
-use rp2a03::opcodes::*;
 use crate::{assert_zn, mem::Memory};
+use rp2a03::opcodes::*;
 
 impl Memory for Vec<u8> {
     fn index(&self, addr: u16) -> &u8 {
