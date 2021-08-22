@@ -78,7 +78,7 @@ impl CPU {
         // Internals of BRK/IRQ/NMI/RESET on a MOS 6502 by Michael Steil
         *self = Self::default();
         self.reg_s = self.reg_s.wrapping_sub(3);
-        self.pc = CPU::read_addr(mem, 0xfffc);
+        self.pc = mem.read_u16(0xfffc);
     }
 
     pub fn run_one(&mut self, mem: &mut dyn Memory) -> u8 {
@@ -627,7 +627,7 @@ impl CPU {
                 self.push_addr(mem, self.pc);
                 let p = self.pack_flags();
                 self.push_byte(mem, p);
-                self.pc = CPU::read_addr(mem, 0xfffe);
+                self.pc = mem.read_u16(0xfffe);
                 self.flag_break = true;
                 0
             }
@@ -746,17 +746,17 @@ impl CPU {
                 let lo = self.get_next_byte(mem);
                 let hi = self.get_next_byte(mem);
                 let addr_indirect = ((hi as u16) << 8) + lo as u16;
-                let addr = CPU::read_addr(mem, addr_indirect);
+                let addr = mem.read_u16(addr_indirect);
                 AddressedByte::new(addr, mem[addr], false)
             }
             AddressingMode::IndexedIndirect => {
                 let zero_page_addr = (self.get_next_byte(mem) + self.reg_x) as u16;
-                let addr = CPU::read_addr(mem, zero_page_addr);
+                let addr = mem.read_u16(zero_page_addr);
                 AddressedByte::new(addr, mem[addr], false)
             }
             AddressingMode::IndirectIndexed => {
                 let zero_page_addr = self.get_next_byte(mem);
-                let addr_base = CPU::read_addr(mem, zero_page_addr as u16);
+                let addr_base = mem.read_u16(zero_page_addr as u16);
                 let addr = addr_base + self.reg_y as u16;
                 let has_crossed_page = self.reg_y > addr as u8;
                 AddressedByte::new(addr, mem[addr], has_crossed_page)
@@ -816,17 +816,17 @@ impl CPU {
                 let lo = self.get_next_byte(mem);
                 let hi = self.get_next_byte(mem);
                 let addr_indirect = ((hi as u16) << 8) + lo as u16;
-                let addr = CPU::read_addr(mem, addr_indirect);
+                let addr = mem.read_u16(addr_indirect);
                 AddressedByteMut::new(&mut mem[addr])
             }
             AddressingMode::IndexedIndirect => {
                 let zero_page_addr = (self.get_next_byte(mem) + self.reg_x) as u16;
-                let addr = CPU::read_addr(mem, zero_page_addr);
+                let addr = mem.read_u16(zero_page_addr);
                 AddressedByteMut::new(&mut mem[addr])
             }
             AddressingMode::IndirectIndexed => {
                 let zero_page_addr = self.get_next_byte(mem);
-                let addr_base = CPU::read_addr(mem, zero_page_addr as u16);
+                let addr_base = mem.read_u16(zero_page_addr as u16);
                 let addr = addr_base + self.reg_y as u16;
                 AddressedByteMut::new(&mut mem[addr])
             }
@@ -862,12 +862,6 @@ impl CPU {
         let mut addr = self.pull_byte(mem) as u16;
         addr |= (self.pull_byte(mem) as u16) << 8;
         addr
-    }
-
-    fn read_addr(mem: &dyn Memory, addr: u16) -> u16 {
-        let mut result = mem[addr] as u16;
-        result |= (mem[addr + 1] as u16) << 8;
-        result
     }
 
     #[cfg(test)]
