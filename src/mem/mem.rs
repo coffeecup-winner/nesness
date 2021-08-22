@@ -1,5 +1,7 @@
 use std::ops::{Index, IndexMut};
 
+use super::mappers::{self, Mapper};
+
 pub trait Memory {
     fn index(&self, addr: u16) -> &u8;
     fn index_mut(&mut self, addr: u16) -> &mut u8;
@@ -41,7 +43,7 @@ impl<'a> IndexMut<u16> for dyn Memory + 'a {
     }
 }
 
-pub struct MemoryMap {
+pub struct MemoryMap<'a> {
     // Main RAM - 0x0000..0x1fff
     ram: [u8; 0x0800],
 
@@ -61,14 +63,15 @@ pub struct MemoryMap {
     // Unused/disabled - 0x4018..0x401f
 
     // Cartridge space - 0x4020..0xffff
-    cartridge: Vec<u8>,
+    mapper: Box<dyn Mapper>,
+    prg_rom: &'a mut [Vec<u8>]
 }
 
-impl MemoryMap {
+impl<'a> MemoryMap<'a> {
     #[allow(dead_code)]
-    pub fn new() -> Self {
+    pub fn new(mapper: u8, prg_rom: &'a mut [Vec<u8>]) -> Self {
         MemoryMap {
-            ram: [0; 0x0800],
+            ram: [0xcc; 0x0800],
             ppuctrl: 0,
             ppumask: 0,
             ppustatus: 0,
@@ -77,12 +80,13 @@ impl MemoryMap {
             ppuscroll: 0,
             ppuaddr: 0,
             ppudata: 0,
-            cartridge: vec![0; 0xbfe0],
+            mapper: mappers::get_mapper(mapper),
+            prg_rom,
         }
     }
 }
 
-impl Memory for MemoryMap {
+impl<'a> Memory for MemoryMap<'a> {
     fn index(&self, addr: u16) -> &u8 {
         match addr >> 12 {
             0 | 1 => &self.ram[(addr & 0x7ff) as usize],
@@ -100,7 +104,7 @@ impl Memory for MemoryMap {
             4 if (addr as u8) < 0x20 => {
                 todo!()
             }
-            _ => &self.cartridge[(addr - 0x4020) as usize],
+            _ => self.mapper.map(addr, &self.prg_rom),
         }
     }
 
@@ -119,9 +123,9 @@ impl Memory for MemoryMap {
                 _ => unreachable!(),
             },
             4 if (addr as u8) < 0x20 => {
-                todo!()
+                panic!("Unmapped space access")
             }
-            _ => &mut self.cartridge[(addr - 0x4020) as usize],
+            _ => self.mapper.map_mut(addr, &mut self.prg_rom),
         }
     }
 }
@@ -134,7 +138,8 @@ mod tests {
     #[test]
     fn test_ram_mirroring() {
         let test = |range: Range<u16>| {
-            let mut mmap = MemoryMap::new();
+            let mut prg_rom = vec![];
+            let mut mmap = MemoryMap::new(0, &mut prg_rom);
             let mem = &mut mmap as &mut dyn Memory;
             for i in range {
                 mem[i] = i as u8;
@@ -153,7 +158,8 @@ mod tests {
     #[test]
     fn test_ppu_registers_mirroring() {
         let test = |offset: u16| {
-            let mut mmap = MemoryMap::new();
+            let mut prg_rom = vec![];
+            let mut mmap = MemoryMap::new(0, &mut prg_rom);
             let mem = &mut mmap as &mut dyn Memory;
             for i in offset..offset + 8 {
                 mem[i] = 1 << (i & 0x7);

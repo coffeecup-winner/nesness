@@ -15,20 +15,20 @@ pub enum TVSystem {
 
 #[derive(Debug)]
 pub struct NESHeader {
-    is_nes2_format: bool,
-    tv_system: TVSystem,
-    prg_rom_banks: u8,
-    chr_rom_banks: u8,
-    prg_ram_banks: u8,
-    is_vs_unisystem: bool,
-    is_playchoice_10: bool,
-    mapper: u8,
-    mirroring: Mirroring,
-    ignore_mirroring: bool,
-    has_persistent_memory: bool,
-    has_trainer: bool,
-    has_prg_ram: bool,
-    has_bus_conflicts: bool,
+    pub is_nes2_format: bool,
+    pub tv_system: TVSystem,
+    pub prg_rom_banks: u8,
+    pub chr_rom_banks: u8,
+    pub prg_ram_banks: u8,
+    pub is_vs_unisystem: bool,
+    pub is_playchoice_10: bool,
+    pub mapper: u8,
+    pub mirroring: Mirroring,
+    pub ignore_mirroring: bool,
+    pub has_persistent_memory: bool,
+    pub has_trainer: bool,
+    pub has_prg_ram: bool,
+    pub has_bus_conflicts: bool,
 }
 
 pub struct NESFile {
@@ -38,7 +38,7 @@ pub struct NESFile {
 }
 
 impl NESFile {
-    pub fn load(data: Vec<u8>) -> Option<Self> {
+    pub fn load(data: &[u8]) -> Option<Self> {
         let header = Self::load_header(&data)?;
         if header.mapper != 0 {
             unimplemented!()
