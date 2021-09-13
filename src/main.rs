@@ -1,5 +1,6 @@
 mod cpu;
 mod mem;
+mod ppu;
 mod rom;
 
 fn main() {
