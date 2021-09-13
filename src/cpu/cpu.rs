@@ -54,20 +54,6 @@ impl AddressedByte {
     }
 }
 
-struct AddressedByteMut<'a> {
-    pub prefetched_byte: u8,
-    pub byte: &'a mut u8,
-}
-
-impl<'a> AddressedByteMut<'a> {
-    pub fn new(byte: &'a mut u8) -> Self {
-        AddressedByteMut {
-            prefetched_byte: *byte,
-            byte,
-        }
-    }
-}
-
 #[allow(dead_code)]
 impl CPU {
     pub fn new() -> Self {
@@ -134,20 +120,17 @@ impl CPU {
             }
             Instruction::STA => {
                 let a = self.reg_a;
-                let m = self.get_addressed_byte_mut(info.addressing, mem).byte;
-                *m = a;
+                mem.write_u8(self.get_address(info.addressing, mem), a);
                 0
             }
             Instruction::STX => {
                 let x = self.reg_x;
-                let m = self.get_addressed_byte_mut(info.addressing, mem).byte;
-                *m = x;
+                mem.write_u8(self.get_address(info.addressing, mem), x);
                 0
             }
             Instruction::STY => {
                 let y = self.reg_y;
-                let m = self.get_addressed_byte_mut(info.addressing, mem).byte;
-                *m = y;
+                mem.write_u8(self.get_address(info.addressing, mem), y);
                 0
             }
 
@@ -346,9 +329,10 @@ impl CPU {
 
             // ===== Increments/decrements =====
             Instruction::INC => {
-                let m = self.get_addressed_byte_mut(info.addressing, mem).byte;
-                *m = m.wrapping_add(1);
-                let result = *m;
+                let addr = self.get_address(info.addressing, mem);
+                let mut result = mem.read_u8(addr);
+                result = result.wrapping_add(1);
+                mem.write_u8(addr, result);
                 self.update_zn_flags(result);
                 0
             }
@@ -363,9 +347,10 @@ impl CPU {
                 0
             }
             Instruction::DEC => {
-                let m = self.get_addressed_byte_mut(info.addressing, mem).byte;
-                *m = m.wrapping_sub(1);
-                let result = *m;
+                let addr = self.get_address(info.addressing, mem);
+                let mut result = mem.read_u8(addr);
+                result = result.wrapping_sub(1);
+                mem.write_u8(addr, result);
                 self.update_zn_flags(result);
                 0
             }
@@ -382,57 +367,79 @@ impl CPU {
 
             // ===== Shifts =====
             Instruction::ASL => {
-                let AddressedByteMut {
-                    prefetched_byte: prev,
-                    byte: v,
-                    ..
-                } = self.get_addressed_byte_mut(info.addressing, mem);
-                *v <<= 1;
-                let result = *v;
+                let (prev, result) = if info.addressing == AddressingMode::Accumulator {
+                    let prev = self.reg_a;
+                    self.reg_a <<= 1;
+                    (prev, self.reg_a)
+                } else {
+                    let addr = self.get_address(info.addressing, mem);
+                    let prev = mem.read_u8(addr);
+                    let result = prev << 1;
+                    mem.write_u8(addr, result);
+                    (prev, result)
+                };
                 self.update_zn_flags(result);
                 self.flag_carry = (prev & 0x80) != 0;
                 0
             }
             Instruction::LSR => {
-                let AddressedByteMut {
-                    prefetched_byte: prev,
-                    byte: v,
-                    ..
-                } = self.get_addressed_byte_mut(info.addressing, mem);
-                *v >>= 1;
-                let result = *v;
+                let (prev, result) = if info.addressing == AddressingMode::Accumulator {
+                    let prev = self.reg_a;
+                    self.reg_a >>= 1;
+                    (prev, self.reg_a)
+                } else {
+                    let addr = self.get_address(info.addressing, mem);
+                    let prev = mem.read_u8(addr);
+                    let result = prev >> 1;
+                    mem.write_u8(addr, result);
+                    (prev, result)
+                };
                 self.update_zn_flags(result);
                 self.flag_carry = (prev & 0x01) != 0;
                 0
             }
             Instruction::ROL => {
                 let carry = self.flag_carry;
-                let AddressedByteMut {
-                    prefetched_byte: prev,
-                    byte: v,
-                    ..
-                } = self.get_addressed_byte_mut(info.addressing, mem);
-                *v <<= 1;
-                if carry {
-                    *v |= 0x01;
-                }
-                let result = *v;
+                let (prev, result) = if info.addressing == AddressingMode::Accumulator {
+                    let prev = self.reg_a;
+                    self.reg_a <<= 1;
+                    if carry {
+                        self.reg_a |= 0x01;
+                    }
+                    (prev, self.reg_a)
+                } else {
+                    let addr = self.get_address(info.addressing, mem);
+                    let prev = mem.read_u8(addr);
+                    let mut result = prev << 1;
+                    if carry {
+                        result |= 0x01;
+                    }
+                    mem.write_u8(addr, result);
+                    (prev, result)
+                };
                 self.update_zn_flags(result);
                 self.flag_carry = (prev & 0x80) != 0;
                 0
             }
             Instruction::ROR => {
                 let carry = self.flag_carry;
-                let AddressedByteMut {
-                    prefetched_byte: prev,
-                    byte: v,
-                    ..
-                } = self.get_addressed_byte_mut(info.addressing, mem);
-                *v >>= 1;
-                if carry {
-                    *v |= 0x80;
-                }
-                let result = *v;
+                let (prev, result) = if info.addressing == AddressingMode::Accumulator {
+                    let prev = self.reg_a;
+                    self.reg_a >>= 1;
+                    if carry {
+                        self.reg_a |= 0x80;
+                    }
+                    (prev, self.reg_a)
+                } else {
+                    let addr = self.get_address(info.addressing, mem);
+                    let prev = mem.read_u8(addr);
+                    let mut result = prev >> 1;
+                    if carry {
+                        result |= 0x80;
+                    }
+                    mem.write_u8(addr, result);
+                    (prev, result)
+                };
                 self.update_zn_flags(result);
                 self.flag_carry = (prev & 0x01) != 0;
                 0
@@ -668,69 +675,57 @@ impl CPU {
             // ===== Unofficial instructions =====
             Instruction::SLO => {
                 // Shift
-                let AddressedByteMut {
-                    prefetched_byte: prev,
-                    byte: m,
-                    ..
-                } = self.get_addressed_byte_mut(info.addressing, mem);
-                *m <<= 1;
-                let m = *m;
+                let addr = self.get_address(info.addressing, mem);
+                let prev = mem.read_u8(addr);
+                let result = prev << 1;
+                mem.write_u8(addr, result);
                 self.flag_carry = (prev & 0x80) != 0;
 
                 // OR
-                self.reg_a |= m;
+                self.reg_a |= result;
                 self.update_zn_flags(self.reg_a);
                 0
             }
             Instruction::RLA => {
                 // Rotate
                 let carry = self.flag_carry;
-                let AddressedByteMut {
-                    prefetched_byte: prev,
-                    byte: m,
-                    ..
-                } = self.get_addressed_byte_mut(info.addressing, mem);
-                *m <<= 1;
+                let addr = self.get_address(info.addressing, mem);
+                let prev = mem.read_u8(addr);
+                let mut result = prev << 1;
                 if carry {
-                    *m |= 0x01;
+                    result |= 0x01;
                 }
-                let m = *m;
+                mem.write_u8(addr, result);
                 self.flag_carry = (prev & 0x80) != 0;
 
                 // AND
-                self.reg_a &= m;
+                self.reg_a &= result;
                 self.update_zn_flags(self.reg_a);
                 0
             }
             Instruction::SRE => {
                 // Shift
-                let AddressedByteMut {
-                    prefetched_byte: prev,
-                    byte: m,
-                    ..
-                } = self.get_addressed_byte_mut(info.addressing, mem);
-                *m >>= 1;
-                let m = *m;
+                let addr = self.get_address(info.addressing, mem);
+                let prev = mem.read_u8(addr);
+                let result = prev >> 1;
+                mem.write_u8(addr, result);
                 self.flag_carry = (prev & 0x01) != 0;
 
                 // XOR
-                self.reg_a ^= m;
+                self.reg_a ^= result;
                 self.update_zn_flags(self.reg_a);
                 0
             }
             Instruction::RRA => {
                 // Rotate
                 let carry = self.flag_carry;
-                let AddressedByteMut {
-                    prefetched_byte: prev,
-                    byte: m,
-                    ..
-                } = self.get_addressed_byte_mut(info.addressing, mem);
-                *m >>= 1;
+                let addr = self.get_address(info.addressing, mem);
+                let prev = mem.read_u8(addr);
+                let mut m = prev >> 1;
                 if carry {
-                    *m |= 0x80;
+                    m |= 0x80;
                 }
-                let m = *m;
+                mem.write_u8(addr, m);
                 self.flag_carry = (prev & 0x01) != 0;
 
                 // Add
@@ -750,8 +745,7 @@ impl CPU {
             Instruction::SAX => {
                 let a = self.reg_a;
                 let x = self.reg_x;
-                let m = self.get_addressed_byte_mut(info.addressing, mem).byte;
-                *m = a & x;
+                mem.write_u8(self.get_address(info.addressing, mem), a & x);
                 0
             }
             Instruction::LAX => {
@@ -771,20 +765,22 @@ impl CPU {
             }
             Instruction::DCP => {
                 // Decrement
-                let m = self.get_addressed_byte_mut(info.addressing, mem).byte;
-                *m = m.wrapping_sub(1);
-                let m = *m;
+                let addr = self.get_address(info.addressing, mem);
+                let mut result = mem.read_u8(addr);
+                result = result.wrapping_sub(1);
+                mem.write_u8(addr, result);
                 // Compare
                 let a = self.reg_a;
-                self.update_zn_flags(a.wrapping_sub(m));
-                self.flag_carry = a >= m;
+                self.update_zn_flags(a.wrapping_sub(result));
+                self.flag_carry = a >= result;
                 0
             }
             Instruction::ISB => {
                 // Increment
-                let m = self.get_addressed_byte_mut(info.addressing, mem).byte;
-                *m = m.wrapping_add(1);
-                let m = *m;
+                let addr = self.get_address(info.addressing, mem);
+                let mut m = mem.read_u8(addr);
+                m = m.wrapping_add(1);
+                mem.write_u8(addr, m);
                 // Subtract
                 let a = self.reg_a;
                 // A - M - (1 - C) == A + !M + C
@@ -865,14 +861,14 @@ impl CPU {
                 {
                     self.__insn_bytes_read += 1;
                 }
-                AddressedByte::new(addr, mem[addr], false)
+                AddressedByte::new(addr, mem.read_u8(addr), false)
             }
             AddressingMode::Relative => {
                 let offset = self.get_next_byte(mem) as i8;
                 let offset_u16 = (0x100 + offset as i16) as u16;
                 let addr = (self.pc - 0x100 + offset_u16) as u16;
                 let has_crossed_page = (self.pc & 0x0100) != (addr & 0x0100);
-                AddressedByte::new(addr, mem[addr], has_crossed_page)
+                AddressedByte::new(addr, mem.read_u8(addr), has_crossed_page)
             }
             AddressingMode::ZeroPage
             | AddressingMode::ZeroPageX
@@ -881,50 +877,17 @@ impl CPU {
             | AddressingMode::Indirect
             | AddressingMode::IndexedIndirect => {
                 let addr = self.get_address(mode, mem);
-                AddressedByte::new(addr, mem[addr], false)
+                AddressedByte::new(addr, mem.read_u8(addr), false)
             }
             AddressingMode::AbsoluteX => {
                 let addr = self.get_address(mode, mem);
                 let has_crossed_page = self.reg_x > addr as u8;
-                AddressedByte::new(addr, mem[addr], has_crossed_page)
+                AddressedByte::new(addr, mem.read_u8(addr), has_crossed_page)
             }
             AddressingMode::AbsoluteY | AddressingMode::IndirectIndexed => {
                 let addr = self.get_address(mode, mem);
                 let has_crossed_page = self.reg_y > addr as u8;
-                AddressedByte::new(addr, mem[addr], has_crossed_page)
-            }
-        }
-    }
-
-    fn get_addressed_byte_mut<'a>(
-        &'a mut self,
-        mode: AddressingMode,
-        mem: &'a mut dyn Memory,
-    ) -> AddressedByteMut<'a> {
-        match mode {
-            AddressingMode::Implicit => {
-                panic!("Implicit addressing mode must be handled by the caller")
-            }
-            AddressingMode::Immediate => {
-                panic!("Can't address immediate as mutable")
-            }
-            AddressingMode::Relative => {
-                panic!("Relative addressing mode must be handled by the caller")
-            }
-            AddressingMode::Indirect => {
-                panic!("Don't need to address indirect as mutable")
-            }
-            AddressingMode::Accumulator => AddressedByteMut::new(&mut self.reg_a),
-            AddressingMode::ZeroPage
-            | AddressingMode::ZeroPageX
-            | AddressingMode::ZeroPageY
-            | AddressingMode::Absolute
-            | AddressingMode::AbsoluteX
-            | AddressingMode::AbsoluteY
-            | AddressingMode::IndexedIndirect
-            | AddressingMode::IndirectIndexed => {
-                let addr = self.get_address(mode, mem);
-                AddressedByteMut::new(&mut mem[addr])
+                AddressedByte::new(addr, mem.read_u8(addr), has_crossed_page)
             }
         }
     }
@@ -970,31 +933,31 @@ impl CPU {
                 // the page boundary read from the same page instead of the next
                 let addr_lo = ((hi as u16) << 8) + lo as u16;
                 let addr_hi = ((hi as u16) << 8) + (lo.wrapping_add(1)) as u16;
-                let mut addr = mem[addr_lo] as u16;
-                addr |= (mem[addr_hi] as u16) << 8;
+                let mut addr = mem.read_u8(addr_lo) as u16;
+                addr |= (mem.read_u8(addr_hi) as u16) << 8;
                 addr
             }
             AddressingMode::IndexedIndirect => {
                 // Note: address reads from zero page are wrapping
                 let zero_page_addr_lo = self.get_next_byte(mem).wrapping_add(self.reg_x);
                 let zero_page_addr_hi = zero_page_addr_lo.wrapping_add(1);
-                let mut addr = mem[zero_page_addr_lo as u16] as u16;
-                addr |= (mem[zero_page_addr_hi as u16] as u16) << 8;
+                let mut addr = mem.read_u8(zero_page_addr_lo as u16) as u16;
+                addr |= (mem.read_u8(zero_page_addr_hi as u16) as u16) << 8;
                 addr
             }
             AddressingMode::IndirectIndexed => {
                 // Note: address reads from zero page are wrapping
                 let zero_page_addr_lo = self.get_next_byte(mem);
                 let zero_page_addr_hi = zero_page_addr_lo.wrapping_add(1);
-                let mut addr_base = mem[zero_page_addr_lo as u16] as u16;
-                addr_base |= (mem[zero_page_addr_hi as u16] as u16) << 8;
+                let mut addr_base = mem.read_u8(zero_page_addr_lo as u16) as u16;
+                addr_base |= (mem.read_u8(zero_page_addr_hi as u16) as u16) << 8;
                 addr_base.wrapping_add(self.reg_y as u16)
             }
         }
     }
 
     fn get_next_byte(&mut self, mem: &dyn Memory) -> u8 {
-        let byte = mem[self.pc];
+        let byte = mem.read_u8(self.pc);
         self.pc += 1;
         #[cfg(test)]
         {
@@ -1004,13 +967,13 @@ impl CPU {
     }
 
     fn push_byte(&mut self, mem: &mut dyn Memory, b: u8) {
-        mem[0x0100 + self.reg_s as u16] = b;
+        mem.write_u8(0x0100 + self.reg_s as u16, b);
         self.reg_s = self.reg_s.wrapping_sub(1);
     }
 
     fn pull_byte(&mut self, mem: &dyn Memory) -> u8 {
         self.reg_s = self.reg_s.wrapping_add(1);
-        return mem[0x0100 + self.reg_s as u16];
+        return mem.read_u8(0x0100 + self.reg_s as u16);
     }
 
     fn push_addr(&mut self, mem: &mut dyn Memory, addr: u16) {

@@ -18,12 +18,12 @@ use crate::{assert_zn, mem::Memory};
 use rp2a03::opcodes::*;
 
 impl Memory for Vec<u8> {
-    fn index(&self, addr: u16) -> &u8 {
-        &self[addr as usize]
+    fn read_u8(&self, addr: u16) -> u8 {
+        self[addr as usize]
     }
 
-    fn index_mut(&mut self, addr: u16) -> &mut u8 {
-        &mut self[addr as usize]
+    fn write_u8(&mut self, addr: u16, value: u8) {
+        self[addr as usize] = value;
     }
 }
 

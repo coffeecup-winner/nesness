@@ -1,18 +1,8 @@
-use std::ops::{Index, IndexMut};
-
 use super::mappers::{self, Mapper};
 
 pub trait Memory {
-    fn index(&self, addr: u16) -> &u8;
-    fn index_mut(&mut self, addr: u16) -> &mut u8;
-
-    fn read_u8(&self, addr: u16) -> u8 {
-        *self.index(addr)
-    }
-
-    fn write_u8(&mut self, addr: u16, value: u8) {
-        *self.index_mut(addr) = value;
-    }
+    fn read_u8(&self, addr: u16) -> u8;
+    fn write_u8(&mut self, addr: u16, value: u8);
 
     fn read_u16(&self, addr: u16) -> u16 {
         let mut result = self.read_u8(addr) as u16;
@@ -23,23 +13,6 @@ pub trait Memory {
     fn write_u16(&mut self, addr: u16, value: u16) {
         self.write_u8(addr, value as u8);
         self.write_u8(addr + 1, (value >> 8) as u8);
-    }
-}
-
-// Indices are implemented for memory and not the other way around
-// to allow implementing this for std types such as Vec<u8>
-
-impl<'a> Index<u16> for dyn Memory + 'a {
-    type Output = u8;
-
-    fn index(&self, index: u16) -> &Self::Output {
-        Memory::index(self, index)
-    }
-}
-
-impl<'a> IndexMut<u16> for dyn Memory + 'a {
-    fn index_mut(&mut self, index: u16) -> &mut Self::Output {
-        Memory::index_mut(self, index)
     }
 }
 
@@ -62,7 +35,7 @@ pub struct MemoryMap<'a> {
 
     // Cartridge space - 0x4020..0xffff
     mapper: Box<dyn Mapper>,
-    prg_rom: &'a mut [Vec<u8>]
+    prg_rom: &'a mut [Vec<u8>],
 }
 
 impl<'a> MemoryMap<'a> {
@@ -86,45 +59,41 @@ impl<'a> MemoryMap<'a> {
 }
 
 impl<'a> Memory for MemoryMap<'a> {
-    fn index(&self, addr: u16) -> &u8 {
+    fn read_u8(&self, addr: u16) -> u8 {
         match addr >> 12 {
-            0 | 1 => &self.ram[(addr & 0x7ff) as usize],
+            0 | 1 => self.ram[(addr & 0x7ff) as usize],
             2 | 3 => match addr & 0x7 {
-                0 => &self.ppuctrl,
-                1 => &self.ppumask,
-                2 => &self.ppustatus,
-                3 => &self.oamaddr,
-                4 => &self.oamdata,
-                5 => &self.ppuscroll,
-                6 => &self.ppuaddr,
-                7 => &self.ppudata,
+                0 => self.ppuctrl,
+                1 => self.ppumask,
+                2 => self.ppustatus,
+                3 => self.oamaddr,
+                4 => self.oamdata,
+                5 => self.ppuscroll,
+                6 => self.ppuaddr,
+                7 => self.ppudata,
                 _ => unreachable!(),
             },
-            4 if (addr as u8) < 0x20 => {
-                &self.apu[addr as u8 as usize]
-            }
-            _ => self.mapper.map(addr, &self.prg_rom),
+            4 if (addr as u8) < 0x20 => self.apu[addr as u8 as usize],
+            _ => *self.mapper.map(addr, &self.prg_rom),
         }
     }
 
-    fn index_mut(&mut self, addr: u16) -> &mut u8 {
+    fn write_u8(&mut self, addr: u16, value: u8) {
         match addr >> 12 {
-            0 | 1 => &mut self.ram[(addr & 0x7ff) as usize],
+            0 | 1 => self.ram[(addr & 0x7ff) as usize] = value,
             2 | 3 => match addr & 0x7 {
-                0 => &mut self.ppuctrl,
-                1 => &mut self.ppumask,
-                2 => &mut self.ppustatus,
-                3 => &mut self.oamaddr,
-                4 => &mut self.oamdata,
-                5 => &mut self.ppuscroll,
-                6 => &mut self.ppuaddr,
-                7 => &mut self.ppudata,
+                0 => self.ppuctrl = value,
+                1 => self.ppumask = value,
+                2 => self.ppustatus = value,
+                3 => self.oamaddr = value,
+                4 => self.oamdata = value,
+                5 => self.ppuscroll = value,
+                6 => self.ppuaddr = value,
+                7 => self.ppudata = value,
                 _ => unreachable!(),
             },
-            4 if (addr as u8) < 0x20 => {
-                &mut self.apu[addr as u8 as usize]
-            }
-            _ => self.mapper.map_mut(addr, &mut self.prg_rom),
+            4 if (addr as u8) < 0x20 => self.apu[addr as u8 as usize] = value,
+            _ => *self.mapper.map_mut(addr, &mut self.prg_rom) = value,
         }
     }
 }
@@ -141,11 +110,11 @@ mod tests {
             let mut mmap = MemoryMap::new(0, &mut prg_rom);
             let mem = &mut mmap as &mut dyn Memory;
             for i in range {
-                mem[i] = i as u8;
+                mem.write_u8(i, i as u8);
             }
             let mem = &mmap as &dyn Memory;
             for i in 0..0x2000u16 {
-                assert_eq!(i as u8, mem[i]);
+                assert_eq!(i as u8, mem.read_u8(i));
             }
         };
         test(0x0000..0x0800);
@@ -161,11 +130,11 @@ mod tests {
             let mut mmap = MemoryMap::new(0, &mut prg_rom);
             let mem = &mut mmap as &mut dyn Memory;
             for i in offset..offset + 8 {
-                mem[i] = 1 << (i & 0x7);
+                mem.write_u8(i, 1 << (i & 0x7));
             }
             let mem = &mmap as &dyn Memory;
             for i in 0x2000..0x4000u16 {
-                assert_eq!(1 << (i & 0x7), mem[i]);
+                assert_eq!(1 << (i & 0x7), mem.read_u8(i));
             }
         };
 
