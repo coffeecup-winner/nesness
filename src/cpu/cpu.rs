@@ -60,7 +60,7 @@ impl CPU {
         Self::default()
     }
 
-    pub fn reset(&mut self, mem: &dyn Memory) {
+    pub fn reset<M: Memory>(&mut self, mem: &M) {
         // Detailed in https://www.pagetable.com/?p=410
         // Internals of BRK/IRQ/NMI/RESET on a MOS 6502 by Michael Steil
         *self = Self::default();
@@ -69,7 +69,7 @@ impl CPU {
         self.pc = mem.read_u16(0xfffc);
     }
 
-    pub fn run_one(&mut self, mem: &mut dyn Memory) -> u8 {
+    pub fn run_one<M: Memory>(&mut self, mem: &mut M) -> u8 {
         #[cfg(test)]
         self.__init_checks();
         let opcode = self.get_next_byte(mem);
@@ -330,9 +330,7 @@ impl CPU {
             // ===== Increments/decrements =====
             Instruction::INC => {
                 let addr = self.get_address(info.addressing, mem);
-                let mut result = mem.read_u8(addr);
-                result = result.wrapping_add(1);
-                mem.write_u8(addr, result);
+                let (_, result) = mem.update_u8(addr, |v| v.wrapping_add(1));
                 self.update_zn_flags(result);
                 0
             }
@@ -348,9 +346,7 @@ impl CPU {
             }
             Instruction::DEC => {
                 let addr = self.get_address(info.addressing, mem);
-                let mut result = mem.read_u8(addr);
-                result = result.wrapping_sub(1);
-                mem.write_u8(addr, result);
+                let (_, result) = mem.update_u8(addr, |v| v.wrapping_sub(1));
                 self.update_zn_flags(result);
                 0
             }
@@ -373,10 +369,7 @@ impl CPU {
                     (prev, self.reg_a)
                 } else {
                     let addr = self.get_address(info.addressing, mem);
-                    let prev = mem.read_u8(addr);
-                    let result = prev << 1;
-                    mem.write_u8(addr, result);
-                    (prev, result)
+                    mem.update_u8(addr, |v| v << 1)
                 };
                 self.update_zn_flags(result);
                 self.flag_carry = (prev & 0x80) != 0;
@@ -389,10 +382,7 @@ impl CPU {
                     (prev, self.reg_a)
                 } else {
                     let addr = self.get_address(info.addressing, mem);
-                    let prev = mem.read_u8(addr);
-                    let result = prev >> 1;
-                    mem.write_u8(addr, result);
-                    (prev, result)
+                    mem.update_u8(addr, |v| v >> 1)
                 };
                 self.update_zn_flags(result);
                 self.flag_carry = (prev & 0x01) != 0;
@@ -409,13 +399,13 @@ impl CPU {
                     (prev, self.reg_a)
                 } else {
                     let addr = self.get_address(info.addressing, mem);
-                    let prev = mem.read_u8(addr);
-                    let mut result = prev << 1;
-                    if carry {
-                        result |= 0x01;
-                    }
-                    mem.write_u8(addr, result);
-                    (prev, result)
+                    mem.update_u8(addr, |v| {
+                        let mut result = v << 1;
+                        if carry {
+                            result |= 0x01;
+                        }
+                        result
+                    })
                 };
                 self.update_zn_flags(result);
                 self.flag_carry = (prev & 0x80) != 0;
@@ -432,13 +422,13 @@ impl CPU {
                     (prev, self.reg_a)
                 } else {
                     let addr = self.get_address(info.addressing, mem);
-                    let prev = mem.read_u8(addr);
-                    let mut result = prev >> 1;
-                    if carry {
-                        result |= 0x80;
-                    }
-                    mem.write_u8(addr, result);
-                    (prev, result)
+                    mem.update_u8(addr, |v| {
+                        let mut result = v >> 1;
+                        if carry {
+                            result |= 0x80;
+                        }
+                        result
+                    })
                 };
                 self.update_zn_flags(result);
                 self.flag_carry = (prev & 0x01) != 0;
@@ -676,9 +666,7 @@ impl CPU {
             Instruction::SLO => {
                 // Shift
                 let addr = self.get_address(info.addressing, mem);
-                let prev = mem.read_u8(addr);
-                let result = prev << 1;
-                mem.write_u8(addr, result);
+                let (prev, result) = mem.update_u8(addr, |v| v << 1);
                 self.flag_carry = (prev & 0x80) != 0;
 
                 // OR
@@ -690,12 +678,13 @@ impl CPU {
                 // Rotate
                 let carry = self.flag_carry;
                 let addr = self.get_address(info.addressing, mem);
-                let prev = mem.read_u8(addr);
-                let mut result = prev << 1;
-                if carry {
-                    result |= 0x01;
-                }
-                mem.write_u8(addr, result);
+                let (prev, result) = mem.update_u8(addr, |v| {
+                    let mut result = v << 1;
+                    if carry {
+                        result |= 0x01;
+                    }
+                    result
+                });
                 self.flag_carry = (prev & 0x80) != 0;
 
                 // AND
@@ -706,9 +695,7 @@ impl CPU {
             Instruction::SRE => {
                 // Shift
                 let addr = self.get_address(info.addressing, mem);
-                let prev = mem.read_u8(addr);
-                let result = prev >> 1;
-                mem.write_u8(addr, result);
+                let (prev, result) = mem.update_u8(addr, |v| v >> 1);
                 self.flag_carry = (prev & 0x01) != 0;
 
                 // XOR
@@ -720,12 +707,13 @@ impl CPU {
                 // Rotate
                 let carry = self.flag_carry;
                 let addr = self.get_address(info.addressing, mem);
-                let prev = mem.read_u8(addr);
-                let mut m = prev >> 1;
-                if carry {
-                    m |= 0x80;
-                }
-                mem.write_u8(addr, m);
+                let (prev, m) = mem.update_u8(addr, |v| {
+                    let mut result = v >> 1;
+                    if carry {
+                        result |= 0x80;
+                    }
+                    result
+                });
                 self.flag_carry = (prev & 0x01) != 0;
 
                 // Add
@@ -766,9 +754,8 @@ impl CPU {
             Instruction::DCP => {
                 // Decrement
                 let addr = self.get_address(info.addressing, mem);
-                let mut result = mem.read_u8(addr);
-                result = result.wrapping_sub(1);
-                mem.write_u8(addr, result);
+                let (_, result) = mem.update_u8(addr, |v| v.wrapping_sub(1));
+
                 // Compare
                 let a = self.reg_a;
                 self.update_zn_flags(a.wrapping_sub(result));
@@ -778,9 +765,8 @@ impl CPU {
             Instruction::ISB => {
                 // Increment
                 let addr = self.get_address(info.addressing, mem);
-                let mut m = mem.read_u8(addr);
-                m = m.wrapping_add(1);
-                mem.write_u8(addr, m);
+                let (_, m) = mem.update_u8(addr, |v| v.wrapping_add(1));
+
                 // Subtract
                 let a = self.reg_a;
                 // A - M - (1 - C) == A + !M + C
@@ -846,7 +832,7 @@ impl CPU {
         self.flag_negative = (p & flags::N) != 0;
     }
 
-    fn get_addressed_byte(&mut self, mode: AddressingMode, mem: &dyn Memory) -> AddressedByte {
+    fn get_addressed_byte<M: Memory>(&mut self, mode: AddressingMode, mem: &M) -> AddressedByte {
         match mode {
             AddressingMode::Implicit => {
                 panic!("Implicit addressing mode must be handled by the caller")
@@ -892,7 +878,7 @@ impl CPU {
         }
     }
 
-    fn get_address(&mut self, mode: AddressingMode, mem: &dyn Memory) -> u16 {
+    fn get_address<M: Memory>(&mut self, mode: AddressingMode, mem: &M) -> u16 {
         match mode {
             AddressingMode::Implicit => {
                 panic!("Implicit addressing mode must be handled by the caller")
@@ -956,7 +942,7 @@ impl CPU {
         }
     }
 
-    fn get_next_byte(&mut self, mem: &dyn Memory) -> u8 {
+    fn get_next_byte<M: Memory>(&mut self, mem: &M) -> u8 {
         let byte = mem.read_u8(self.pc);
         self.pc += 1;
         #[cfg(test)]
@@ -966,22 +952,22 @@ impl CPU {
         byte
     }
 
-    fn push_byte(&mut self, mem: &mut dyn Memory, b: u8) {
+    fn push_byte<M: Memory>(&mut self, mem: &mut M, b: u8) {
         mem.write_u8(0x0100 + self.reg_s as u16, b);
         self.reg_s = self.reg_s.wrapping_sub(1);
     }
 
-    fn pull_byte(&mut self, mem: &dyn Memory) -> u8 {
+    fn pull_byte<M: Memory>(&mut self, mem: &M) -> u8 {
         self.reg_s = self.reg_s.wrapping_add(1);
         return mem.read_u8(0x0100 + self.reg_s as u16);
     }
 
-    fn push_addr(&mut self, mem: &mut dyn Memory, addr: u16) {
+    fn push_addr<M: Memory>(&mut self, mem: &mut M, addr: u16) {
         self.push_byte(mem, (addr >> 8) as u8);
         self.push_byte(mem, addr as u8);
     }
 
-    fn pull_addr(&mut self, mem: &dyn Memory) -> u16 {
+    fn pull_addr<M: Memory>(&mut self, mem: &M) -> u16 {
         let mut addr = self.pull_byte(mem) as u16;
         addr |= (self.pull_byte(mem) as u16) << 8;
         addr

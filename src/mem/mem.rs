@@ -14,6 +14,13 @@ pub trait Memory {
         self.write_u8(addr, value as u8);
         self.write_u8(addr + 1, (value >> 8) as u8);
     }
+
+    fn update_u8<F: FnOnce(u8) -> u8>(&mut self, addr: u16, f: F) -> (u8, u8) {
+        let prev = self.read_u8(addr);
+        let result = f(prev);
+        self.write_u8(addr, result);
+        (prev, result)
+    }
 }
 
 pub struct MemoryMap<'a> {
@@ -108,13 +115,11 @@ mod tests {
         let test = |range: Range<u16>| {
             let mut prg_rom = vec![];
             let mut mmap = MemoryMap::new(0, &mut prg_rom);
-            let mem = &mut mmap as &mut dyn Memory;
             for i in range {
-                mem.write_u8(i, i as u8);
+                mmap.write_u8(i, i as u8);
             }
-            let mem = &mmap as &dyn Memory;
             for i in 0..0x2000u16 {
-                assert_eq!(i as u8, mem.read_u8(i));
+                assert_eq!(i as u8, mmap.read_u8(i));
             }
         };
         test(0x0000..0x0800);
@@ -128,13 +133,11 @@ mod tests {
         let test = |offset: u16| {
             let mut prg_rom = vec![];
             let mut mmap = MemoryMap::new(0, &mut prg_rom);
-            let mem = &mut mmap as &mut dyn Memory;
             for i in offset..offset + 8 {
-                mem.write_u8(i, 1 << (i & 0x7));
+                mmap.write_u8(i, 1 << (i & 0x7));
             }
-            let mem = &mmap as &dyn Memory;
             for i in 0x2000..0x4000u16 {
-                assert_eq!(1 << (i & 0x7), mem.read_u8(i));
+                assert_eq!(1 << (i & 0x7), mmap.read_u8(i));
             }
         };
 
