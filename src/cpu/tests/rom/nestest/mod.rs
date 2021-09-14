@@ -24,17 +24,22 @@ fn test() {
         let p = u8::from_str_radix(&line[idx..idx + 2], 16).expect("Failed to parse P");
         idx += 6;
         let s = u8::from_str_radix(&line[idx..idx + 2], 16).expect("Failed to parse S");
-        // TODO: PPU
-        idx += 19;
+        idx += 7;
+        let ppu_scanline = u16::from_str_radix(&line[idx..idx + 3].trim_start(), 10).expect("Failed to parse PPU X");
+        idx += 4;
+        let ppu_cycle = u16::from_str_radix(&line[idx..idx + 3].trim_start(), 10).expect("Failed to parse PPU X");
+        idx += 8;
         let cycles = u64::from_str_radix(&line[idx..], 10).expect("Failed to parse number of cycles");
 
         assert_eq!(pc, nes.cpu.pc);
-        assert_eq!(cycles, nes.get_total_cycles());
         assert_eq!(a, nes.cpu.reg_a);
         assert_eq!(x, nes.cpu.reg_x);
         assert_eq!(y, nes.cpu.reg_y);
         assert_eq!(s, nes.cpu.reg_s);
         assert_eq!(p, nes.cpu.pack_flags());
+        assert_eq!(ppu_scanline, nes.ppu.current_scanline);
+        assert_eq!(ppu_cycle, nes.ppu.current_cycle);
+        assert_eq!(cycles, nes.get_total_cycles());
 
         nes.tick();
         nes.wait_until_cpu_ready();

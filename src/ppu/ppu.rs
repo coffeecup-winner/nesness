@@ -9,6 +9,9 @@ pub enum SpriteSize {
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug)]
 pub struct PPU {
+    pub current_scanline: u16,
+    pub current_cycle: u16, // within a scanline
+
     latch: u8,
 
     // PPU control
@@ -60,6 +63,8 @@ pub struct PPU {
 impl PPU {
     pub fn new() -> Self {
         PPU {
+            current_scanline: 0,
+            current_cycle: 0,
             latch: 0,
             nametable_base_addr: 0x2000,
             sprite_pattern_table_addr: 0x0000,
@@ -88,6 +93,17 @@ impl PPU {
             wrote_ppu_addr_hi: Cell::new(false),
             ppu_vram: vec![0; 0x4000],
             oam_dma_page: 0,
+        }
+    }
+
+    pub fn run_one(&mut self) {
+        self.current_cycle += 1;
+        if self.current_cycle > 340 {
+            self.current_scanline += 1;
+            self.current_cycle = 0;
+        }
+        if self.current_scanline > 261 {
+            self.current_scanline = 0;
         }
     }
 
