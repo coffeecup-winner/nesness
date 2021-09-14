@@ -9,7 +9,6 @@ fn test() {
     let mut nes = NES::new(rom);
     nes.cpu.pc = 0xc000;
 
-    let mut total_cycles = 7;
     for line in NESTEST_LOG.lines() {
         println!("{}", line);
 
@@ -27,17 +26,18 @@ fn test() {
         let s = u8::from_str_radix(&line[idx..idx + 2], 16).expect("Failed to parse S");
         // TODO: PPU
         idx += 19;
-        let cycles = u32::from_str_radix(&line[idx..], 10).expect("Failed to parse number of cycles");
+        let cycles = u64::from_str_radix(&line[idx..], 10).expect("Failed to parse number of cycles");
 
         assert_eq!(pc, nes.cpu.pc);
-        assert_eq!(cycles, total_cycles);
+        assert_eq!(cycles, nes.get_total_cycles());
         assert_eq!(a, nes.cpu.reg_a);
         assert_eq!(x, nes.cpu.reg_x);
         assert_eq!(y, nes.cpu.reg_y);
         assert_eq!(s, nes.cpu.reg_s);
         assert_eq!(p, nes.cpu.pack_flags());
 
-        total_cycles += nes.cpu.run_one(&mut nes.mmap) as u32;
+        nes.tick();
+        nes.wait_until_cpu_ready();
     }
 
     // Verify internal error codes
