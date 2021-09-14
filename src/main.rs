@@ -1,5 +1,6 @@
 mod cpu;
 mod mem;
+mod nes;
 mod ppu;
 mod rom;
 
