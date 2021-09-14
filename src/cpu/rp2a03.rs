@@ -20,6 +20,7 @@ pub mod flags {
     pub const N: u8 = 0x80; // Negative
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy)]
 pub enum Instruction {
     ILL, // Illegal
@@ -139,13 +140,7 @@ macro_rules! opcodes {
             )*
 
             lazy_static::lazy_static! {
-                pub static ref OPCODES: Vec<u8> = {
-                    let mut result = vec![];
-                    $(
-                        result.push($value);
-                    )*
-                    result
-                };
+                pub static ref OPCODES: Vec<u8> = vec![$($value,)*];
             }
         }
         pub mod info {

@@ -6,6 +6,7 @@ pub enum SpriteSize {
     _8x16,
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug)]
 pub struct PPU {
     latch: u8,

@@ -3,6 +3,7 @@ use crate::{
     mem::Memory,
 };
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Default, Clone)]
 pub struct CPU {
     // Registers
@@ -959,7 +960,7 @@ impl CPU {
 
     fn pull_byte<M: Memory>(&mut self, mem: &M) -> u8 {
         self.reg_s = self.reg_s.wrapping_add(1);
-        return mem.read_u8(0x0100 + self.reg_s as u16);
+        mem.read_u8(0x0100 + self.reg_s as u16)
     }
 
     fn push_addr<M: Memory>(&mut self, mem: &mut M, addr: u16) {

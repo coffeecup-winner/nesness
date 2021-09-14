@@ -70,7 +70,7 @@ impl<'a> Memory for MemoryMap<'a> {
             },
             4 if (addr & 0xfff == 0x14) => self.ppu.read_oamdma(),
             4 if (addr as u8) < 0x20 => self.apu[addr as u8 as usize],
-            _ => *self.mapper.map(addr, &self.prg_rom),
+            _ => *self.mapper.map(addr, self.prg_rom),
         }
     }
 

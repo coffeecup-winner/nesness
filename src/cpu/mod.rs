@@ -1,3 +1,4 @@
+#[allow(clippy::module_inception)]
 mod cpu;
 pub mod rp2a03;
 #[cfg(test)]

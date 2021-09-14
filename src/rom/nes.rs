@@ -6,6 +6,7 @@ pub enum Mirroring {
     Vertical,
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug)]
 pub enum TVSystem {
     NTSC,
@@ -39,11 +40,11 @@ pub struct NESFile {
 
 impl NESFile {
     pub fn load(data: &[u8]) -> Option<Self> {
-        let header = Self::load_header(&data)?;
+        let header = Self::load_header(data)?;
         if header.mapper != 0 {
             unimplemented!()
         }
-        let mut idx = 16 as usize;
+        let mut idx = 16;
         if header.has_trainer {
             todo!()
         }
@@ -58,12 +59,12 @@ impl NESFile {
         }
         let mut prg_rom = vec![];
         for _ in 0..header.prg_rom_banks {
-            prg_rom.push(data[idx..idx + PRG_ROM_BANK_SIZE].iter().cloned().collect());
+            prg_rom.push(data[idx..idx + PRG_ROM_BANK_SIZE].to_vec());
             idx += PRG_ROM_BANK_SIZE;
         }
         let mut chr_rom = vec![];
         for _ in 0..header.chr_rom_banks {
-            chr_rom.push(data[idx..idx + CHR_ROM_BANK_SIZE].iter().cloned().collect());
+            chr_rom.push(data[idx..idx + CHR_ROM_BANK_SIZE].to_vec());
             idx += CHR_ROM_BANK_SIZE;
         }
         Some(NESFile {
