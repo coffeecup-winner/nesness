@@ -117,22 +117,4 @@ mod tests {
         test(0x1000..0x1800);
         test(0x1800..0x2000);
     }
-
-    #[test]
-    fn test_ppu_registers_mirroring() {
-        let test = |offset: u16| {
-            let mut prg_rom = vec![];
-            let mut mmap = MemoryMap::new(0, &mut prg_rom);
-            for i in offset..offset + 8 {
-                mmap.write_u8(i, 1 << (i & 0x7));
-            }
-            for i in 0x2000..0x4000u16 {
-                assert_eq!(1 << (i & 0x7), mmap.read_u8(i));
-            }
-        };
-
-        for offset in (0x2000..0x4000).step_by(8) {
-            test(offset);
-        }
-    }
 }
