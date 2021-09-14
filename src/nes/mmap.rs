@@ -12,7 +12,7 @@ pub struct MemoryMap {
 
     // PPU (registers) - 0x2000..0x3fff
     // TODO: This type should be renamed/moved
-    ppu: PPU,
+    pub ppu: PPU,
 
     // APU and I/O registers - 0x4000..0x4020
     apu: [u8; 32],

@@ -37,8 +37,8 @@ fn test() {
         assert_eq!(y, nes.cpu.reg_y);
         assert_eq!(s, nes.cpu.reg_s);
         assert_eq!(p, nes.cpu.pack_flags());
-        assert_eq!(ppu_scanline, nes.ppu.current_scanline);
-        assert_eq!(ppu_cycle, nes.ppu.current_cycle);
+        assert_eq!(ppu_scanline, nes.mmap.ppu.current_scanline);
+        assert_eq!(ppu_cycle, nes.mmap.ppu.current_cycle);
         assert_eq!(cycles, nes.get_total_cycles());
 
         nes.tick();
