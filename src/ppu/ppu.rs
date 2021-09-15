@@ -11,6 +11,7 @@ pub enum SpriteSize {
 pub struct PPU {
     pub current_scanline: u16,
     pub current_cycle: u16, // within a scanline
+    pub frame_buffer: Vec<u8>,
 
     // Internal registers
     reg_v: Cell<u16>,  // Current VRAM address
@@ -67,6 +68,7 @@ impl PPU {
         PPU {
             current_scanline: 0,
             current_cycle: 0,
+            frame_buffer: vec![0; 256 * 240],
             reg_v: Cell::new(0),
             reg_t: 0,
             reg_x: 0,
@@ -183,6 +185,15 @@ impl PPU {
                 // Vertical position copy from t to v
                 self.reg_v.set((self.reg_v.get() & !0x7be0) | (self.reg_t & 0x7be0));
             }
+        }
+
+        // Rendering
+        if self.current_scanline < 240 && (4..260).contains(&self.current_cycle) {
+            // PPU starts rendering a scanline from cycle 4
+            let x = self.current_cycle - 4;
+            let y = self.current_scanline;
+
+            self.frame_buffer[(y * 256 + x) as usize] = 0;
         }
 
         // vblank state change
