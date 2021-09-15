@@ -18,6 +18,12 @@ pub struct PPU {
     reg_x: u8,         // Fine X scroll
     reg_w: Cell<bool>, // Write toggle
 
+    // Internal temp storage for data fetching
+    current_tile_idx: u8,
+    current_tile_attr: u8,
+    current_tile_pattern_lo: u8,
+    current_tile_pattern_hi: u8,
+
     latch: u8,
 
     // PPU control
@@ -65,6 +71,10 @@ impl PPU {
             reg_t: 0,
             reg_x: 0,
             reg_w: Cell::new(false),
+            current_tile_idx: 0,
+            current_tile_attr: 0,
+            current_tile_pattern_lo: 0,
+            current_tile_pattern_hi: 0,
             latch: 0,
             sprite_pattern_table_addr: 0x0000,
             background_pattern_table_addr: 0x0000,
@@ -91,6 +101,100 @@ impl PPU {
     }
 
     pub fn run_one(&mut self) {
+        // Data fetches and address increments
+        if self.current_scanline < 240 || self.current_scanline == 261 {
+            // Tile fetch
+            // NOTE: unused nametable fetches are not implemented
+            let c = self.current_cycle;
+            if (c > 0 && c <= 256) || (c > 320 && c <= 336) {
+                match c % 8 {
+                    1 => {
+                        // Do nothing, the fetch happens on the next cycle
+                        // This might have to be changed to be more precise
+                    }
+                    2 => {
+                        let tile_addr = 0x2000 | (self.reg_v.get() & 0x0fff);
+                        self.current_tile_idx = self.ppu_vram[tile_addr as usize];
+                    }
+                    3 => {
+                        // Do nothing, the fetch happens on the next cycle
+                        // This might have to be changed to be more precise
+                    }
+                    4 => {
+                        let v = self.reg_v.get();
+                        let attr_addr =
+                            0x23c0 | (v & 0x0c00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07);
+                        self.current_tile_attr = self.ppu_vram[attr_addr as usize];
+                    }
+                    5 => {
+                        // Do nothing, the fetch happens on the next cycle
+                        // This might have to be changed to be more precise
+                    }
+                    6 => {
+                        let addr = self.background_pattern_table_addr + self.current_tile_idx as u16 * 16;
+                        self.current_tile_pattern_lo = self.ppu_vram[addr as usize];
+                    }
+                    7 => {
+                        // Do nothing, the fetch happens on the next cycle
+                        // This might have to be changed to be more precise
+                    }
+                    0 => {
+                        let addr = self.background_pattern_table_addr + self.current_tile_idx as u16 * 16 + 8;
+                        self.current_tile_pattern_hi = self.ppu_vram[addr as usize];
+                    }
+                    _ => unreachable!()
+                }
+            }
+            // Coordinate increment
+            if ((c > 0 && c <= 248) || (c > 320 && c <= 336)) && c % 8 == 0 {
+                // Increment coarse X
+                let v = self.reg_v.get();
+                if (v & 0x001f) == 0x001f {
+                    // Switch the nametable
+                    self.reg_v.set((v & !0x001f) ^ 0x0400);
+                } else {
+                    self.reg_v.set(v + 1);
+                }
+            } else if c == 256 {
+                // Increment fine Y
+                let mut v = self.reg_v.get();
+                if (v & 0x7000) != 0x7000 {
+                    self.reg_v.set(v + 0x1000);
+                } else {
+                    // Increment coarse Y
+                    v &= !0x7000;
+                    let mut y = (v & 0x03e0) >> 5;
+                    if y == 29 {
+                        // Switch the nametable
+                        y = 0;
+                        v ^= 0x0800;
+                    } else if y == 31 {
+                        // Do not switch the nametable
+                        y = 0;
+                    } else {
+                        y += 1;
+                    }
+                    self.reg_v.set((v & !0x03e0) | (y << 5));
+                }
+            } else if c == 257 {
+                // Horizontal position copy from t to v
+                self.reg_v.set((self.reg_v.get() & !0x041f) | (self.reg_t & 0x041f));
+            } else if (c >= 280 && c <= 304) && self.current_scanline == 261 {
+                // Vertical position copy from t to v
+                self.reg_v.set((self.reg_v.get() & !0x7be0) | (self.reg_t & 0x7be0));
+            }
+        }
+
+        // vblank state change
+        if self.current_scanline == 241 && self.current_cycle == 1 {
+            self.is_in_vblank.set(true);
+        } else if self.current_scanline == 261 && self.current_cycle == 1 {
+            self.is_in_vblank.set(false);
+            self.is_sprite0_hit = false;
+            self.is_sprite_overflow = false;
+        }
+
+        // TODO: skip one cycle on odd frames
         self.current_cycle += 1;
         if self.current_cycle > 340 {
             self.current_scanline += 1;
