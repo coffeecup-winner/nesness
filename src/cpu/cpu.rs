@@ -792,6 +792,15 @@ impl CPU {
         info.cycles + extra_cycles
     }
 
+    pub fn execute_interrupt<M: Memory>(&mut self, mem: &mut M) -> u8 {
+        self.push_addr(mem, self.pc);
+        let p = self.pack_flags();
+        self.push_byte(mem, p);
+        self.pc = mem.read_u16(0xfffa);
+        self.flag_break = true;
+        7 // Interrupts take 7 cycles
+    }
+
     fn update_zn_flags(&mut self, val: u8) {
         self.flag_zero = val == 0;
         self.flag_negative = (val & 0x80) != 0;

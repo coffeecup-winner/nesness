@@ -14,6 +14,7 @@ pub struct PPU {
     pub current_scanline: u16,
     pub current_cycle: u16, // within a scanline
     pub frame_buffer: Vec<u8>,
+    pub is_cpu_interrupt_requested: bool,
 
     // Internal registers
     reg_v: Cell<u16>,  // Current VRAM address
@@ -73,6 +74,7 @@ impl PPU {
             current_scanline: 0,
             current_cycle: 0,
             frame_buffer: vec![0; 256 * 240],
+            is_cpu_interrupt_requested: false,
             reg_v: Cell::new(0),
             reg_t: 0,
             reg_x: 0,
@@ -224,6 +226,9 @@ impl PPU {
         // vblank state change
         if self.current_scanline == 241 && self.current_cycle == 1 {
             self.is_in_vblank.set(true);
+            if self.generate_nmi_on_vblank {
+                self.is_cpu_interrupt_requested = true;
+            }
         } else if self.current_scanline == 261 && self.current_cycle == 1 {
             self.is_in_vblank.set(false);
             self.is_sprite0_hit = false;
@@ -264,7 +269,9 @@ impl PPU {
         };
         self.is_primary = (value & 0x40) != 0;
         self.generate_nmi_on_vblank = (value & 0x80) != 0;
-        // TODO: generate an NMI if in vblank
+        if self.generate_nmi_on_vblank && self.is_in_vblank.get() {
+            self.is_cpu_interrupt_requested = true;
+        }
     }
 
     pub fn read_ppumask(&self) -> u8 {

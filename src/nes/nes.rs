@@ -33,7 +33,7 @@ impl NES {
     pub fn reset(&mut self) {
         self.cpu.reset(&self.mmap);
         self.total_ticks = 7 * 12; // CPU reset takes 7 cycles
-        // Meanwhile PPU progresses through the first 7 * 3 dots
+                                   // Meanwhile PPU progresses through the first 7 * 3 dots
         for _ in 0..21 {
             self.mmap.ppu.run_one();
         }
@@ -45,7 +45,12 @@ impl NES {
     pub fn tick(&mut self) {
         // NTSC timings
         if self.total_ticks == self.next_cpu_tick {
-            let cycles = self.cpu.run_one(&mut self.mmap);
+            let cycles = if self.mmap.ppu.is_cpu_interrupt_requested {
+                self.mmap.ppu.is_cpu_interrupt_requested = false;
+                self.cpu.execute_interrupt(&mut self.mmap)
+            } else {
+                self.cpu.run_one(&mut self.mmap)
+            };
             self.next_cpu_tick += cycles as u64 * 12;
         }
         if self.total_ticks == self.next_ppu_tick {
