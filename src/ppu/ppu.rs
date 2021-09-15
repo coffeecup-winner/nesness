@@ -1,5 +1,7 @@
 use std::cell::Cell;
 
+use super::shreg::ShiftRegister16;
+
 #[derive(Debug)]
 pub enum SpriteSize {
     _8x8,
@@ -24,6 +26,8 @@ pub struct PPU {
     current_tile_attr: u8,
     current_tile_pattern_lo: u8,
     current_tile_pattern_hi: u8,
+    shreg_bg_tile_lo: ShiftRegister16,
+    shreg_bg_tile_hi: ShiftRegister16,
 
     latch: u8,
 
@@ -77,6 +81,8 @@ impl PPU {
             current_tile_attr: 0,
             current_tile_pattern_lo: 0,
             current_tile_pattern_hi: 0,
+            shreg_bg_tile_lo: ShiftRegister16::new(),
+            shreg_bg_tile_hi: ShiftRegister16::new(),
             latch: 0,
             sprite_pattern_table_addr: 0x0000,
             background_pattern_table_addr: 0x0000,
@@ -133,18 +139,23 @@ impl PPU {
                         // This might have to be changed to be more precise
                     }
                     6 => {
-                        let addr = self.background_pattern_table_addr + self.current_tile_idx as u16 * 16;
+                        let addr =
+                            self.background_pattern_table_addr + self.current_tile_idx as u16 * 16;
                         self.current_tile_pattern_lo = self.ppu_vram[addr as usize];
+                        self.shreg_bg_tile_lo.feed(self.current_tile_pattern_lo);
                     }
                     7 => {
                         // Do nothing, the fetch happens on the next cycle
                         // This might have to be changed to be more precise
                     }
                     0 => {
-                        let addr = self.background_pattern_table_addr + self.current_tile_idx as u16 * 16 + 8;
+                        let addr = self.background_pattern_table_addr
+                            + self.current_tile_idx as u16 * 16
+                            + 8;
                         self.current_tile_pattern_hi = self.ppu_vram[addr as usize];
+                        self.shreg_bg_tile_hi.feed(self.current_tile_pattern_hi);
                     }
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 }
             }
             // Coordinate increment
@@ -180,10 +191,12 @@ impl PPU {
                 }
             } else if c == 257 {
                 // Horizontal position copy from t to v
-                self.reg_v.set((self.reg_v.get() & !0x041f) | (self.reg_t & 0x041f));
+                self.reg_v
+                    .set((self.reg_v.get() & !0x041f) | (self.reg_t & 0x041f));
             } else if (c >= 280 && c <= 304) && self.current_scanline == 261 {
                 // Vertical position copy from t to v
-                self.reg_v.set((self.reg_v.get() & !0x7be0) | (self.reg_t & 0x7be0));
+                self.reg_v
+                    .set((self.reg_v.get() & !0x7be0) | (self.reg_t & 0x7be0));
             }
         }
 
@@ -193,7 +206,19 @@ impl PPU {
             let x = self.current_cycle - 4;
             let y = self.current_scanline;
 
-            self.frame_buffer[(y * 256 + x) as usize] = 0;
+            let bit0 = (self.shreg_bg_tile_lo.lo() >> self.reg_x) & 0x01;
+            let bit1 = (self.shreg_bg_tile_hi.lo() >> self.reg_x) & 0x01;
+            // TODO: shift register
+            let attr = self.current_tile_attr;
+            let shift = match (x / 32 > 15, y / 32 > 15) {
+                (true, true) => 6,
+                (true, false) => 2,
+                (false, true) => 4,
+                (false, false) => 0,
+            };
+            let idx = (((attr >> shift) & 0x03) << 2) | (bit1 << 1) | bit0;
+
+            self.frame_buffer[(y * 256 + x) as usize] = self.ppu_vram[0x3f00 + idx as usize];
         }
 
         // vblank state change
@@ -204,6 +229,10 @@ impl PPU {
             self.is_sprite0_hit = false;
             self.is_sprite_overflow = false;
         }
+
+        // Shift all shift registers
+        self.shreg_bg_tile_lo.shift();
+        self.shreg_bg_tile_hi.shift();
 
         // TODO: skip one cycle on odd frames
         self.current_cycle += 1;
