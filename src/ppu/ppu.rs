@@ -325,7 +325,7 @@ impl PPU {
 
     pub fn read_ppudata(&self) -> u8 {
         // TODO: use internal buffer instead of the direct read
-        let result = self.ppu_vram[self.get_ppu_addr()];
+        let result = self.ppu_vram[Self::get_ppu_addr(self.reg_v.get())];
         self.reg_v
             .set(self.reg_v.get().wrapping_add(self.vram_incr as u16));
         result
@@ -333,7 +333,7 @@ impl PPU {
 
     pub fn write_ppudata(&mut self, value: u8) {
         self.latch = value;
-        let addr = self.get_ppu_addr();
+        let addr = Self::get_ppu_addr(self.reg_v.get());
         self.ppu_vram[addr] = value;
         self.reg_v
             .set(self.reg_v.get().wrapping_add(self.vram_incr as u16));
@@ -350,13 +350,13 @@ impl PPU {
         // TODO: start the data copy
     }
 
-    fn get_ppu_addr(&self) -> usize {
-        let addr = self.reg_v.get();
+    fn get_ppu_addr(mut addr: u16) -> usize {
+        addr &= 0x3fff;
         (match addr {
             0x0000..=0x2fff => addr,
             0x3000..=0x3eff => addr - 0x1000,
             0x3f00..=0x3fff => 0x3f00 | (addr & 0x1f),
-            _ => panic!("Wrong register v setting somewhere"),
+            _ => unreachable!(),
         }) as usize
     }
 }
