@@ -55,6 +55,7 @@ impl NES {
         self.total_ticks += 1;
     }
 
+    #[cfg(test)]
     #[inline]
     pub fn wait_until_cpu_ready(&mut self) {
         while self.next_cpu_tick > self.total_ticks {
