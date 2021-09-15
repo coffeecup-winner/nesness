@@ -42,7 +42,7 @@ impl NESFile {
     pub fn load(data: &[u8]) -> Option<Self> {
         let header = Self::load_header(data)?;
         if header.mapper != 0 {
-            unimplemented!()
+            panic!("Mapper {} is not implemented", header.mapper);
         }
         let mut idx = 16;
         if header.has_trainer {
