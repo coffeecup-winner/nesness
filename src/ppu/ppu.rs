@@ -111,116 +111,118 @@ impl PPU {
     }
 
     pub fn run_one(&mut self) {
-        // Data fetches and address increments
-        if self.current_scanline < 240 || self.current_scanline == 261 {
-            // Tile fetch
-            // NOTE: unused nametable fetches are not implemented
-            let c = self.current_cycle;
-            if (c > 0 && c <= 256) || (c > 320 && c <= 336) {
-                match c % 8 {
-                    1 => {
-                        // Do nothing, the fetch happens on the next cycle
-                        // This might have to be changed to be more precise
+        if self.show_background || self.show_sprites {
+            // Data fetches and address increments
+            if self.current_scanline < 240 || self.current_scanline == 261 {
+                // Tile fetch
+                // NOTE: unused nametable fetches are not implemented
+                let c = self.current_cycle;
+                if (c > 0 && c <= 256) || (c > 320 && c <= 336) {
+                    match c % 8 {
+                        1 => {
+                            // Do nothing, the fetch happens on the next cycle
+                            // This might have to be changed to be more precise
+                        }
+                        2 => {
+                            let tile_addr = 0x2000 | (self.reg_v.get() & 0x0fff);
+                            self.current_tile_idx = self.ppu_vram[Self::get_ppu_addr(tile_addr)];
+                        }
+                        3 => {
+                            // Do nothing, the fetch happens on the next cycle
+                            // This might have to be changed to be more precise
+                        }
+                        4 => {
+                            let v = self.reg_v.get();
+                            let attr_addr =
+                                0x23c0 | (v & 0x0c00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07);
+                            self.current_tile_attr = self.ppu_vram[Self::get_ppu_addr(attr_addr)];
+                        }
+                        5 => {
+                            // Do nothing, the fetch happens on the next cycle
+                            // This might have to be changed to be more precise
+                        }
+                        6 => {
+                            let addr =
+                                self.background_pattern_table_addr + self.current_tile_idx as u16 * 16;
+                            self.current_tile_pattern_lo = self.ppu_vram[Self::get_ppu_addr(addr)];
+                            self.shreg_bg_tile_lo.feed(self.current_tile_pattern_lo);
+                        }
+                        7 => {
+                            // Do nothing, the fetch happens on the next cycle
+                            // This might have to be changed to be more precise
+                        }
+                        0 => {
+                            let addr = self.background_pattern_table_addr
+                                + self.current_tile_idx as u16 * 16
+                                + 8;
+                            self.current_tile_pattern_hi = self.ppu_vram[Self::get_ppu_addr(addr)];
+                            self.shreg_bg_tile_hi.feed(self.current_tile_pattern_hi);
+                        }
+                        _ => unreachable!(),
                     }
-                    2 => {
-                        let tile_addr = 0x2000 | (self.reg_v.get() & 0x0fff);
-                        self.current_tile_idx = self.ppu_vram[tile_addr as usize];
-                    }
-                    3 => {
-                        // Do nothing, the fetch happens on the next cycle
-                        // This might have to be changed to be more precise
-                    }
-                    4 => {
-                        let v = self.reg_v.get();
-                        let attr_addr =
-                            0x23c0 | (v & 0x0c00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07);
-                        self.current_tile_attr = self.ppu_vram[attr_addr as usize];
-                    }
-                    5 => {
-                        // Do nothing, the fetch happens on the next cycle
-                        // This might have to be changed to be more precise
-                    }
-                    6 => {
-                        let addr =
-                            self.background_pattern_table_addr + self.current_tile_idx as u16 * 16;
-                        self.current_tile_pattern_lo = self.ppu_vram[addr as usize];
-                        self.shreg_bg_tile_lo.feed(self.current_tile_pattern_lo);
-                    }
-                    7 => {
-                        // Do nothing, the fetch happens on the next cycle
-                        // This might have to be changed to be more precise
-                    }
-                    0 => {
-                        let addr = self.background_pattern_table_addr
-                            + self.current_tile_idx as u16 * 16
-                            + 8;
-                        self.current_tile_pattern_hi = self.ppu_vram[addr as usize];
-                        self.shreg_bg_tile_hi.feed(self.current_tile_pattern_hi);
-                    }
-                    _ => unreachable!(),
                 }
-            }
-            // Coordinate increment
-            if ((c > 0 && c <= 248) || (c > 320 && c <= 336)) && c % 8 == 0 {
-                // Increment coarse X
-                let v = self.reg_v.get();
-                if (v & 0x001f) == 0x001f {
-                    // Switch the nametable
-                    self.reg_v.set((v & !0x001f) ^ 0x0400);
-                } else {
-                    self.reg_v.set(v + 1);
-                }
-            } else if c == 256 {
-                // Increment fine Y
-                let mut v = self.reg_v.get();
-                if (v & 0x7000) != 0x7000 {
-                    self.reg_v.set(v + 0x1000);
-                } else {
-                    // Increment coarse Y
-                    v &= !0x7000;
-                    let mut y = (v & 0x03e0) >> 5;
-                    if y == 29 {
+                // Coordinate increment
+                if ((c > 0 && c <= 248) || (c > 320 && c <= 336)) && c % 8 == 0 {
+                    // Increment coarse X
+                    let v = self.reg_v.get();
+                    if (v & 0x001f) == 0x001f {
                         // Switch the nametable
-                        y = 0;
-                        v ^= 0x0800;
-                    } else if y == 31 {
-                        // Do not switch the nametable
-                        y = 0;
+                        self.reg_v.set((v & !0x001f) ^ 0x0400);
                     } else {
-                        y += 1;
+                        self.reg_v.set(v + 1);
                     }
-                    self.reg_v.set((v & !0x03e0) | (y << 5));
+                } else if c == 256 {
+                    // Increment fine Y
+                    let mut v = self.reg_v.get();
+                    if (v & 0x7000) != 0x7000 {
+                        self.reg_v.set(v + 0x1000);
+                    } else {
+                        // Increment coarse Y
+                        v &= !0x7000;
+                        let mut y = (v & 0x03e0) >> 5;
+                        if y == 29 {
+                            // Switch the nametable
+                            y = 0;
+                            v ^= 0x0800;
+                        } else if y == 31 {
+                            // Do not switch the nametable
+                            y = 0;
+                        } else {
+                            y += 1;
+                        }
+                        self.reg_v.set((v & !0x03e0) | (y << 5));
+                    }
+                } else if c == 257 {
+                    // Horizontal position copy from t to v
+                    self.reg_v
+                        .set((self.reg_v.get() & !0x041f) | (self.reg_t & 0x041f));
+                } else if (c >= 280 && c <= 304) && self.current_scanline == 261 {
+                    // Vertical position copy from t to v
+                    self.reg_v
+                        .set((self.reg_v.get() & !0x7be0) | (self.reg_t & 0x7be0));
                 }
-            } else if c == 257 {
-                // Horizontal position copy from t to v
-                self.reg_v
-                    .set((self.reg_v.get() & !0x041f) | (self.reg_t & 0x041f));
-            } else if (c >= 280 && c <= 304) && self.current_scanline == 261 {
-                // Vertical position copy from t to v
-                self.reg_v
-                    .set((self.reg_v.get() & !0x7be0) | (self.reg_t & 0x7be0));
             }
-        }
 
-        // Rendering
-        if self.current_scanline < 240 && (4..260).contains(&self.current_cycle) {
-            // PPU starts rendering a scanline from cycle 4
-            let x = self.current_cycle - 4;
-            let y = self.current_scanline;
+            // Rendering
+            if self.current_scanline < 240 && (4..260).contains(&self.current_cycle) {
+                // PPU starts rendering a scanline from cycle 4
+                let x = self.current_cycle - 4;
+                let y = self.current_scanline;
 
-            let bit0 = (self.shreg_bg_tile_lo.lo() >> self.reg_x) & 0x01;
-            let bit1 = (self.shreg_bg_tile_hi.lo() >> self.reg_x) & 0x01;
-            // TODO: shift register
-            let attr = self.current_tile_attr;
-            let shift = match (x / 32 > 15, y / 32 > 15) {
-                (true, true) => 6,
-                (true, false) => 2,
-                (false, true) => 4,
-                (false, false) => 0,
-            };
-            let idx = (((attr >> shift) & 0x03) << 2) | (bit1 << 1) | bit0;
+                let bit0 = (self.shreg_bg_tile_lo.lo() >> self.reg_x) & 0x01;
+                let bit1 = (self.shreg_bg_tile_hi.lo() >> self.reg_x) & 0x01;
+                // TODO: shift register
+                let attr = self.current_tile_attr;
+                let shift = match (x / 32 > 15, y / 32 > 15) {
+                    (true, true) => 6,
+                    (true, false) => 2,
+                    (false, true) => 4,
+                    (false, false) => 0,
+                };
+                let idx = (((attr >> shift) & 0x03) << 2) | (bit1 << 1) | bit0;
 
-            self.frame_buffer[(y * 256 + x) as usize] = self.ppu_vram[0x3f00 + idx as usize];
+                self.frame_buffer[(y * 256 + x) as usize] = self.ppu_vram[Self::get_ppu_addr(0x3f00 + idx as u16)];
+            }
         }
 
         // vblank state change
