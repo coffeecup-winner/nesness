@@ -67,4 +67,9 @@ impl NES {
             self.tick();
         }
     }
+
+    #[cfg(debug_assertions)]
+    pub fn dump(&self) {
+        self.mmap.ppu.dump();
+    }
 }

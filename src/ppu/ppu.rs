@@ -406,4 +406,9 @@ impl PPU {
             _ => unreachable!(),
         }) as usize
     }
+
+    #[cfg(debug_assertions)]
+    pub fn dump(&self) {
+        std::fs::write("vram_dump.bin", &self.ppu_vram).expect("Failed to dump PPU VRAM");
+    }
 }

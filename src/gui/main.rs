@@ -21,6 +21,14 @@ pub fn gui_main() {
 
         d.clear_background(Color::BLACK);
 
+        #[cfg(debug_assertions)]
+        {
+            if d.is_key_down(KeyboardKey::KEY_D) {
+                nes.dump();
+                break;
+            }
+        }
+
         // TODO: Make this number internal to the NES type
         // TODO: Account for skipped dots
         for _ in 0..89342 * 4 {
