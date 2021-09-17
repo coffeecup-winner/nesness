@@ -412,3 +412,46 @@ impl PPU {
         std::fs::write("vram_dump.bin", &self.ppu_vram).expect("Failed to dump PPU VRAM");
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{cpu::CPU, nes::mmap::MemoryMap, cpu::rp2a03::opcodes::*};
+
+    #[test]
+    fn test_ppu_vram_access() {
+        let mut cpu = CPU::new();
+        let mut mmap = MemoryMap::new(0, vec![vec![0; 0x10000]]);
+        cpu.reset(&mut mmap);
+
+        for addr in 0..0x4000u16 {
+            let code = vec![
+                LDX_IMM, ((addr >> 8) as u8),
+                LDY_IMM, (addr as u8),
+
+                STX_ABS, 0x06, 0x20,
+                STY_ABS, 0x06, 0x20,
+
+                // Write 0xcc
+                LDA_IMM, 0xcc,
+                STA_ABS, 0x07, 0x20,
+
+                STX_ABS, 0x06, 0x20,
+                STY_ABS, 0x06, 0x20,
+
+                LDA_ABS, 0x07, 0x20,
+                STA_ZPG, 0x00,
+            ];
+            for i in 0..code.len() {
+                mmap.ram[0x200 + i] = code[i];
+            }
+
+            cpu.pc = 0x0200;
+            mmap.ram[0x0000] = 0x00;
+            for _ in 0..code.len() {
+                cpu.run_one(&mut mmap);
+            }
+            assert_eq!(0xcc, mmap.ram[0x0000]);
+            assert_eq!(addr.wrapping_add(1), mmap.ppu.reg_v.get());
+        }
+    }
+}

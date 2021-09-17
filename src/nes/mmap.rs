@@ -8,7 +8,7 @@ use crate::{
 
 pub struct MemoryMap {
     // Main RAM - 0x0000..0x1fff
-    ram: [u8; 0x0800],
+    pub ram: [u8; 0x0800],
 
     // PPU (registers) - 0x2000..0x3fff
     // TODO: This type should be renamed/moved
