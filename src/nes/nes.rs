@@ -1,4 +1,4 @@
-use crate::{cpu::CPU, rom::nes::NESFile};
+use crate::{cpu::CPU, mem::Memory, rom::nes::NESFile};
 
 use super::mmap::MemoryMap;
 
@@ -52,6 +52,16 @@ impl NES {
                 self.cpu.run_one(&mut self.mmap)
             };
             self.next_cpu_tick += cycles as u64 * 12;
+            if let Some(page) = self.mmap.ppu.oam_dma_page.take() {
+                self.next_cpu_tick += 512;
+                // Copying is not cycle accurate
+                let base_addr = (page as u16) << 8;
+                for i in 0..=255 {
+                    self.mmap
+                        .ppu
+                        .write_oamdata_raw(i, self.mmap.read_u8(base_addr + i as u16));
+                }
+            }
         }
         if self.total_ticks == self.next_ppu_tick {
             self.mmap.ppu.run_one();

@@ -15,6 +15,7 @@ pub struct PPU {
     pub current_cycle: u16, // within a scanline
     pub frame_buffer: Vec<u8>,
     pub is_cpu_interrupt_requested: bool,
+    pub oam_dma_page: Option<u8>,
 
     // Internal registers
     reg_v: Cell<u16>,  // Current VRAM address
@@ -63,9 +64,6 @@ pub struct PPU {
 
     // PPU data (VRAM)
     ppu_vram: Vec<u8>,
-
-    // OAM DMA page
-    oam_dma_page: u8,
 }
 
 impl PPU {
@@ -75,6 +73,7 @@ impl PPU {
             current_cycle: 0,
             frame_buffer: vec![0; 256 * 240],
             is_cpu_interrupt_requested: false,
+            oam_dma_page: None,
             reg_v: Cell::new(0),
             reg_t: 0,
             reg_x: 0,
@@ -106,7 +105,6 @@ impl PPU {
             oam_addr: Cell::new(0),
             oam_data: [0; 256],
             ppu_vram: vec![0; 0x4000],
-            oam_dma_page: 0,
         }
     }
 
@@ -395,8 +393,11 @@ impl PPU {
 
     pub fn write_oamdma(&mut self, value: u8) {
         self.latch = value;
-        self.oam_dma_page = value;
-        // TODO: start the data copy
+        self.oam_dma_page = Some(value);
+    }
+
+    pub fn write_oamdata_raw(&mut self, index: u8, value: u8) {
+        self.oam_data[self.oam_addr.get().wrapping_add(index) as usize] = value;
     }
 
     fn get_ppu_addr(mut addr: u16) -> usize {
