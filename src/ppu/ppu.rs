@@ -41,6 +41,7 @@ pub struct PPU {
     pub frame_buffer: Vec<u8>,
     pub is_cpu_interrupt_requested: bool,
     pub oam_dma_page: Option<u8>,
+    is_odd_frame: bool,
 
     // Internal registers
     reg_v: Cell<u16>,  // Current VRAM address
@@ -100,6 +101,7 @@ impl PPU {
             frame_buffer: vec![0; 256 * 240],
             is_cpu_interrupt_requested: false,
             oam_dma_page: None,
+            is_odd_frame: false,
             reg_v: Cell::new(0),
             reg_t: 0,
             reg_x: 0,
@@ -346,8 +348,12 @@ impl PPU {
             }
         }
 
-        // TODO: skip one cycle on odd frames
+        // Increment the cycle/scanline counters
         self.current_cycle += 1;
+        // Skip cycle 340 on the last scanline of the odd frame
+        if self.is_odd_frame && self.current_cycle == 340 && self.current_scanline == 261 {
+            self.current_cycle += 1;
+        }
         if self.current_cycle > 340 {
             self.current_scanline += 1;
             self.current_cycle = 0;
@@ -355,6 +361,7 @@ impl PPU {
         if self.current_scanline > 261 {
             self.current_scanline = 0;
         }
+        self.is_odd_frame = !self.is_odd_frame;
     }
 
     pub fn read_ppuctrl(&self) -> u8 {
