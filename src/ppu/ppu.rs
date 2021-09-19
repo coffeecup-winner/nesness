@@ -11,6 +11,7 @@ pub enum SpriteSize {
 #[derive(Debug, Clone, Copy)]
 struct EvaluatedSprite {
     is_valid: bool,
+    is_zero_sprite: bool,
     x: u8,
     y: u8,
     tile_index: u8,
@@ -23,6 +24,7 @@ impl EvaluatedSprite {
     pub fn new() -> Self {
         EvaluatedSprite {
             is_valid: false,
+            is_zero_sprite: false,
             x: 0xff,
             y: 0xff,
             tile_index: 0xff,
@@ -250,6 +252,7 @@ impl PPU {
                                 self.oam_evaluated[idx_free].attributes = self.oam_data[i * 4 + 2];
                                 self.oam_evaluated[idx_free].x = self.oam_data[i * 4 + 3];
                                 self.oam_evaluated[idx_free].is_valid = true;
+                                self.oam_evaluated[idx_free].is_zero_sprite = i == 0;
                                 idx_free += 1;
                                 if idx_free == self.oam_evaluated.len() {
                                     break;
@@ -278,43 +281,63 @@ impl PPU {
                 let x = self.current_cycle - 4;
                 let y = self.current_scanline;
 
-                let bit0 = (self.shreg_bg_tile_lo.lo() >> self.reg_x) & 0x01;
-                let bit1 = (self.shreg_bg_tile_hi.lo() >> self.reg_x) & 0x01;
-                // TODO: shift register
-                let attr = self.current_tile_attr;
-                let shift = match (x / 32 > 15, y / 32 > 15) {
-                    (true, true) => 6,
-                    (true, false) => 2,
-                    (false, true) => 4,
-                    (false, false) => 0,
-                };
-                let idx = (((attr >> shift) & 0x03) << 2) | (bit1 << 1) | bit0;
-
-                let pixel = Self::get_ppu_addr(0x3f00 + idx as u16);
-
-                let mut sprite_pixel = None;
-                for s in &self.oam_evaluated {
-                    if !s.is_valid {
-                        break;
-                    }
-                    
-                    let bit0 = if s.tile_lo.get_u1() { 1 } else { 0 };
-                    let bit1 = if s.tile_hi.get_u1() { 1 } else { 0 };
-                    if bit0 == 0 && bit1 == 0 {
-                        continue;
-                    }
-
-                    let attr = s.attributes;
-                    let idx = ((attr & 0x03) << 2) | (bit1 << 1) | bit0;
-
-                    sprite_pixel = Some(Self::get_ppu_addr(0x3f00 + idx as u16));
-                    // TODO: priority
-                }
-
-                if let Some(p) = sprite_pixel {
-                    self.frame_buffer[(y * 256 + x) as usize] = self.ppu_vram[p];
+                let bg_idx = if !self.show_background || (!self.show_background_leftmost_8pix && x < 8) {
+                    None
                 } else {
-                    self.frame_buffer[(y * 256 + x) as usize] = self.ppu_vram[pixel];
+                    let bit0 = (self.shreg_bg_tile_lo.lo() >> self.reg_x) & 0x01;
+                    let bit1 = (self.shreg_bg_tile_hi.lo() >> self.reg_x) & 0x01;
+                    if bit0 == 0 && bit1 == 0 {
+                        None
+                    } else {
+                        // TODO: shift register
+                        let attr = self.current_tile_attr;
+                        let shift = match (x / 32 > 15, y / 32 > 15) {
+                            (true, true) => 6,
+                            (true, false) => 2,
+                            (false, true) => 4,
+                            (false, false) => 0,
+                        };
+                        Some((((attr >> shift) & 0x03) << 2) | (bit1 << 1) | bit0)
+                    }
+                };
+
+                let sprite_idx = if !self.show_sprites || (!self.show_sprites_leftmost_8pix && x < 8) {
+                    None
+                } else {
+                    let mut result = None;
+                    for s in &self.oam_evaluated {
+                        if !s.is_valid {
+                            break;
+                        }
+                        
+                        let bit0 = if s.tile_lo.get_u1() { 1 } else { 0 };
+                        let bit1 = if s.tile_hi.get_u1() { 1 } else { 0 };
+                        if bit0 == 0 && bit1 == 0 {
+                            continue;
+                        }
+
+                        let attr = s.attributes;
+                        let idx = ((attr & 0x03) << 2) | (bit1 << 1) | bit0;
+
+                        result = Some((idx, (s.attributes & 0x20) != 0));
+                        break;
+                        // TODO: priority
+                    }
+                    result
+                };
+
+                let idx = match (bg_idx, sprite_idx) {
+                    (None, None) => 0,
+                    (None, Some((idx, _))) => idx,
+                    (_, Some((idx, false))) => idx,
+                    (Some(idx), None) => idx,
+                    (Some(idx), Some((_, true))) => idx,
+                };
+                self.frame_buffer[(y * 256 + x) as usize] = self.ppu_vram[Self::get_ppu_addr(0x3f00 + idx as u16)];
+
+                // Sprite 0 hit
+                if bg_idx.is_some() && sprite_idx.is_some() && x < 255 {
+                    self.is_sprite0_hit = true;
                 }
             }
         }
