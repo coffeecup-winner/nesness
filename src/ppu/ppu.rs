@@ -1,11 +1,36 @@
 use std::cell::Cell;
 
-use super::shreg::ShiftRegister16;
+use super::shreg::{ShiftRegister16, ShiftRegister8};
 
 #[derive(Debug)]
 pub enum SpriteSize {
     _8x8,
     _8x16,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct EvaluatedSprite {
+    is_valid: bool,
+    x: u8,
+    y: u8,
+    tile_index: u8,
+    attributes: u8,
+    tile_lo: ShiftRegister8,
+    tile_hi: ShiftRegister8,
+}
+
+impl EvaluatedSprite {
+    pub fn new() -> Self {
+        EvaluatedSprite {
+            is_valid: false,
+            x: 0xff,
+            y: 0xff,
+            tile_index: 0xff,
+            attributes: 0xff,
+            tile_lo: ShiftRegister8::new(),
+            tile_hi: ShiftRegister8::new(),
+        }
+    }
 }
 
 #[allow(clippy::upper_case_acronyms)]
@@ -61,6 +86,7 @@ pub struct PPU {
 
     // OAM data
     oam_data: [u8; 256],
+    oam_evaluated: [EvaluatedSprite; 8],
 
     // PPU data (VRAM)
     ppu_vram: Vec<u8>,
@@ -104,6 +130,7 @@ impl PPU {
             is_in_vblank: Cell::new(false),
             oam_addr: Cell::new(0),
             oam_data: [0; 256],
+            oam_evaluated: [EvaluatedSprite::new(); 8],
             ppu_vram: vec![0; 0x4000],
         }
     }
@@ -159,6 +186,7 @@ impl PPU {
                         _ => unreachable!(),
                     }
                 }
+
                 // Coordinate increment
                 if ((c > 0 && c <= 248) || (c > 320 && c <= 336)) && c % 8 == 0 {
                     // Increment coarse X
@@ -199,6 +227,47 @@ impl PPU {
                     self.reg_v
                         .set((self.reg_v.get() & !0x7be0) | (self.reg_t & 0x7be0));
                 }
+
+                // Sprite evaluation
+                let next_y = if self.current_scanline == 239 { 0 } else { self.current_scanline + 1} as u8;
+                if c == 1 {
+                    if self.current_scanline != 261 {
+                        for i in 0..self.oam_evaluated.len() {
+                            self.oam_evaluated[i] = EvaluatedSprite::new();
+                        }
+                    }
+                } else if c == 65 {
+                    if self.current_scanline != 261 {
+                        // Not cycle accurate
+                        let mut idx_free = 0;
+                        for i in 0..64 {
+                            let y = self.oam_data[i * 4];
+                            self.oam_evaluated[idx_free].y = y;
+                            if (y..y + 8).contains(&next_y) {
+                                self.oam_evaluated[idx_free].tile_index = self.oam_data[i * 4 + 1];
+                                self.oam_evaluated[idx_free].attributes = self.oam_data[i * 4 + 2];
+                                self.oam_evaluated[idx_free].x = self.oam_data[i * 4 + 3];
+                                self.oam_evaluated[idx_free].is_valid = true;
+                                idx_free += 1;
+                                if idx_free == self.oam_evaluated.len() {
+                                    break;
+                                }
+                            }
+                        }
+                        // TODO: set sprite overflow flag
+                    }
+                } else if c == 257 {
+                    // Not cycle accurate
+                    for i in 0..self.oam_evaluated.len() {
+                        if !self.oam_evaluated[i].is_valid {
+                            break;
+                        }
+                        let idx = self.oam_evaluated[i].tile_index;
+                        let addr = self.sprite_pattern_table_addr + idx as u16 * 8 + (next_y - self.oam_evaluated[i].y) as u16;
+                        self.oam_evaluated[i].tile_lo.load(self.ppu_vram[addr as usize]);
+                        self.oam_evaluated[i].tile_hi.load(self.ppu_vram[addr as usize + 8]);
+                    }
+                }
             }
 
             // Rendering
@@ -219,7 +288,32 @@ impl PPU {
                 };
                 let idx = (((attr >> shift) & 0x03) << 2) | (bit1 << 1) | bit0;
 
-                self.frame_buffer[(y * 256 + x) as usize] = self.ppu_vram[Self::get_ppu_addr(0x3f00 + idx as u16)];
+                let pixel = Self::get_ppu_addr(0x3f00 + idx as u16);
+
+                let mut sprite_pixel = None;
+                for s in &self.oam_evaluated {
+                    if !s.is_valid {
+                        break;
+                    }
+                    
+                    let bit0 = if s.tile_lo.get_u1() { 1 } else { 0 };
+                    let bit1 = if s.tile_hi.get_u1() { 1 } else { 0 };
+                    if bit0 == 0 && bit1 == 0 {
+                        continue;
+                    }
+
+                    let attr = s.attributes;
+                    let idx = ((attr & 0x03) << 2) | (bit1 << 1) | bit0;
+
+                    sprite_pixel = Some(Self::get_ppu_addr(0x3f00 + idx as u16));
+                    // TODO: priority
+                }
+
+                if let Some(p) = sprite_pixel {
+                    self.frame_buffer[(y * 256 + x) as usize] = self.ppu_vram[p];
+                } else {
+                    self.frame_buffer[(y * 256 + x) as usize] = self.ppu_vram[pixel];
+                }
             }
         }
 
@@ -236,8 +330,21 @@ impl PPU {
         }
 
         // Shift all shift registers
-        self.shreg_bg_tile_lo.shift();
-        self.shreg_bg_tile_hi.shift();
+        if (2..258).contains(&self.current_cycle) {
+            self.shreg_bg_tile_lo.shift();
+            self.shreg_bg_tile_hi.shift();
+            for s in &mut self.oam_evaluated {
+                if !s.is_valid {
+                    break;
+                }
+                if s.x != 0 {
+                    s.x -= 1;
+                    continue;
+                }
+                s.tile_lo.shift();
+                s.tile_hi.shift();
+            }
+        }
 
         // TODO: skip one cycle on odd frames
         self.current_cycle += 1;
@@ -323,6 +430,10 @@ impl PPU {
     }
 
     pub fn read_oamdata(&self) -> u8 {
+        // During secondary OAM clear, OAM data is wired to be 0xff
+        if (0..240).contains(&self.current_scanline) && (1..=64).contains(&self.current_cycle) {
+            return 0xff;
+        }
         let result = self.oam_data[self.oam_addr.get() as usize];
         if !self.is_in_vblank.get() {
             self.oam_addr.set(self.oam_addr.get().wrapping_add(1));

@@ -1,9 +1,9 @@
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct ShiftRegister8 {
     data: u8,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct ShiftRegister16 {
     data: u16,
 }
@@ -14,10 +14,18 @@ impl ShiftRegister8 {
         ShiftRegister8 { data: 0 }
     }
 
+    pub fn get_u1(&self) -> bool {
+        (self.data & 0x01) != 0
+    }
+
     pub fn shift(&mut self) -> bool {
         let result = (self.data & 0x01) == 0x01;
         self.data >>= 1;
         result
+    }
+
+    pub fn load(&mut self, v: u8) {
+        self.data = v;
     }
 
     pub fn feed(&mut self, v: bool) {
