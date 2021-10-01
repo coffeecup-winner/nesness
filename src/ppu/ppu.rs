@@ -247,7 +247,7 @@ impl PPU {
                         for i in 0..64 {
                             let y = self.oam_data[i * 4];
                             self.oam_evaluated[idx_free].y = y;
-                            if (y..y + 8).contains(&next_y) {
+                            if (y..y.wrapping_add(8)).contains(&next_y) {
                                 self.oam_evaluated[idx_free].tile_index = self.oam_data[i * 4 + 1];
                                 self.oam_evaluated[idx_free].attributes = self.oam_data[i * 4 + 2];
                                 self.oam_evaluated[idx_free].x = self.oam_data[i * 4 + 3];
@@ -306,10 +306,10 @@ impl PPU {
                 } else {
                     let mut result = None;
                     for s in &self.oam_evaluated {
-                        if !s.is_valid {
+                        if !s.is_valid || s.x != 0 {
                             break;
                         }
-                        
+
                         let bit0 = if s.tile_lo.get_u1() { 1 } else { 0 };
                         let bit1 = if s.tile_hi.get_u1() { 1 } else { 0 };
                         if bit0 == 0 && bit1 == 0 {
