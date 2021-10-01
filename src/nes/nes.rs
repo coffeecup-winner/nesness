@@ -1,6 +1,6 @@
 use crate::{cpu::CPU, mem::Memory, rom::nes::NESFile};
 
-use super::mmap::MemoryMap;
+use super::{mmap::MemoryMap, trace::ExecutionTrace};
 
 #[allow(clippy::upper_case_acronyms)]
 pub struct NES {
@@ -25,7 +25,6 @@ impl NES {
         nes
     }
 
-    #[cfg(test)]
     pub fn get_total_cycles(&self) -> u64 {
         self.total_ticks / 12
     }
@@ -70,7 +69,63 @@ impl NES {
         self.total_ticks += 1;
     }
 
-    #[cfg(test)]
+    pub fn run_with_trace<T: ExecutionTrace>(&mut self, mut trace: T) {
+        self.wait_until_cpu_ready();
+        let cycle_offset = if trace.cycles_start_with_0() {
+            self.get_total_cycles()
+        } else {
+            0
+        };
+        let mut step = 0;
+        loop {
+            if !trace.advance() {
+                break;
+            }
+            if trace.total_cycles() != (self.get_total_cycles() - cycle_offset) {
+                panic!("Failed verification trace on step {}: cycles {}, CPU: {:?}", step, trace.total_cycles(), self.cpu)
+            }
+            if trace.reg_a() != self.cpu.reg_a {
+                panic!("Failed verification trace on step {}: A {}, CPU: {:?}", step, trace.reg_a(), self.cpu)
+            }
+            if trace.reg_x() != self.cpu.reg_x {
+                panic!("Failed verification trace on step {}: X {}, CPU: {:?}", step, trace.reg_x(), self.cpu)
+            }
+            if trace.reg_y() != self.cpu.reg_y {
+                panic!("Failed verification trace on step {}: Y {}, CPU: {:?}", step, trace.reg_y(), self.cpu)
+            }
+            if trace.reg_s() != self.cpu.reg_s {
+                panic!("Failed verification trace on step {}: S {}, CPU: {:?}", step, trace.reg_s(), self.cpu)
+            }
+            if trace.pc() != self.cpu.pc {
+                panic!("Failed verification trace on step {}: PC {}, CPU: {:?}", step, trace.pc(), self.cpu)
+            }
+            if trace.flag_carry() != self.cpu.flag_carry {
+                panic!("Failed verification trace on step {}: C {}, CPU: {:?}", step, trace.flag_carry(), self.cpu)
+            }
+            if trace.flag_zero() != self.cpu.flag_zero {
+                panic!("Failed verification trace on step {}: Z {}, CPU: {:?}", step, trace.flag_zero(), self.cpu)
+            }
+            if trace.flag_interrupt_disable() != self.cpu.flag_interrupt_disable {
+                panic!("Failed verification trace on step {}: I {}, CPU: {:?}", step, trace.flag_interrupt_disable(), self.cpu)
+            }
+            if trace.flag_decimal_mode() != self.cpu.flag_decimal_mode {
+                panic!("Failed verification trace on step {}: D {}, CPU: {:?}", step, trace.flag_decimal_mode(), self.cpu)
+            }
+            if trace.flag_break() != self.cpu.flag_break {
+                panic!("Failed verification trace on step {}: B {}, CPU: {:?}", step, trace.flag_break(), self.cpu)
+            }
+            if trace.flag_overflow() != self.cpu.flag_overflow {
+                panic!("Failed verification trace on step {}: V {}, CPU: {:?}", step, trace.flag_overflow(), self.cpu)
+            }
+            if trace.flag_negative() != self.cpu.flag_negative {
+                panic!("Failed verification trace on step {}: N {}, CPU: {:?}", step, trace.flag_negative(), self.cpu)
+            }
+            self.tick();
+            self.wait_until_cpu_ready();
+            step += 1;
+        }
+    }
+
     #[inline]
     pub fn wait_until_cpu_ready(&mut self) {
         while self.next_cpu_tick > self.total_ticks {
