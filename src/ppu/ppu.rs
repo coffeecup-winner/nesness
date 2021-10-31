@@ -169,8 +169,9 @@ impl PPU {
                             // This might have to be changed to be more precise
                         }
                         6 => {
-                            let addr =
-                                self.background_pattern_table_addr + self.current_tile_idx as u16 * 16;
+                            let addr = self.background_pattern_table_addr
+                                + self.current_tile_idx as u16 * 16
+                                + self.current_scanline % 8;
                             self.current_tile_pattern_lo = mem.read_u8(addr);
                             self.shreg_bg_tile_lo.feed(self.current_tile_pattern_lo);
                         }
@@ -181,6 +182,7 @@ impl PPU {
                         0 => {
                             let addr = self.background_pattern_table_addr
                                 + self.current_tile_idx as u16 * 16
+                                + self.current_scanline % 8
                                 + 8;
                             self.current_tile_pattern_hi = mem.read_u8(addr);
                             self.shreg_bg_tile_hi.feed(self.current_tile_pattern_hi);
@@ -282,8 +284,8 @@ impl PPU {
                 let bg_idx = if !self.show_background || (!self.show_background_leftmost_8pix && x < 8) {
                     None
                 } else {
-                    let bit0 = (self.shreg_bg_tile_lo.lo() >> self.reg_x) & 0x01;
-                    let bit1 = (self.shreg_bg_tile_hi.lo() >> self.reg_x) & 0x01;
+                    let bit0 = (self.shreg_bg_tile_lo.hi() >> (7 - self.reg_x)) & 0x01;
+                    let bit1 = (self.shreg_bg_tile_hi.hi() >> (7 - self.reg_x)) & 0x01;
                     if bit0 == 0 && bit1 == 0 {
                         None
                     } else {
