@@ -563,10 +563,10 @@ impl PPU {
                 let plane1 = mem.read_u8(tile_base_addr + y + 8);
                 for x in 0..8 {
                     let mut idx = 0;
-                    if plane0 & (1 << x) != 0 {
+                    if plane0 & (1 << (7 - x)) != 0 {
                         idx += 1;
                     }
-                    if plane1 & (1 << x) != 0 {
+                    if plane1 & (1 << (7 - x)) != 0 {
                         idx += 2;
                     }
                     let pixel = match idx {
