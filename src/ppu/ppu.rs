@@ -1,5 +1,7 @@
 use std::cell::Cell;
 
+use crate::mem::Memory;
+
 use super::shreg::{ShiftRegister16, ShiftRegister8};
 
 #[derive(Debug)]
@@ -90,9 +92,6 @@ pub struct PPU {
     // OAM data
     oam_data: [u8; 256],
     oam_evaluated: [EvaluatedSprite; 8],
-
-    // PPU data (VRAM)
-    ppu_vram: Vec<u8>,
 }
 
 impl PPU {
@@ -135,11 +134,10 @@ impl PPU {
             oam_addr: Cell::new(0),
             oam_data: [0; 256],
             oam_evaluated: [EvaluatedSprite::new(); 8],
-            ppu_vram: vec![0; 0x4000],
         }
     }
 
-    pub fn run_one(&mut self) {
+    pub fn run_one<M: Memory>(&mut self, mem: &M) {
         if self.show_background || self.show_sprites {
             // Data fetches and address increments
             if self.current_scanline < 240 || self.current_scanline == 261 {
@@ -154,7 +152,7 @@ impl PPU {
                         }
                         2 => {
                             let tile_addr = 0x2000 | (self.reg_v.get() & 0x0fff);
-                            self.current_tile_idx = self.ppu_vram[Self::get_ppu_addr(tile_addr)];
+                            self.current_tile_idx = mem.read_u8(tile_addr);
                         }
                         3 => {
                             // Do nothing, the fetch happens on the next cycle
@@ -164,7 +162,7 @@ impl PPU {
                             let v = self.reg_v.get();
                             let attr_addr =
                                 0x23c0 | (v & 0x0c00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07);
-                            self.current_tile_attr = self.ppu_vram[Self::get_ppu_addr(attr_addr)];
+                            self.current_tile_attr = mem.read_u8(attr_addr);
                         }
                         5 => {
                             // Do nothing, the fetch happens on the next cycle
@@ -173,7 +171,7 @@ impl PPU {
                         6 => {
                             let addr =
                                 self.background_pattern_table_addr + self.current_tile_idx as u16 * 16;
-                            self.current_tile_pattern_lo = self.ppu_vram[Self::get_ppu_addr(addr)];
+                            self.current_tile_pattern_lo = mem.read_u8(addr);
                             self.shreg_bg_tile_lo.feed(self.current_tile_pattern_lo);
                         }
                         7 => {
@@ -184,7 +182,7 @@ impl PPU {
                             let addr = self.background_pattern_table_addr
                                 + self.current_tile_idx as u16 * 16
                                 + 8;
-                            self.current_tile_pattern_hi = self.ppu_vram[Self::get_ppu_addr(addr)];
+                            self.current_tile_pattern_hi = mem.read_u8(addr);
                             self.shreg_bg_tile_hi.feed(self.current_tile_pattern_hi);
                         }
                         _ => unreachable!(),
@@ -269,8 +267,8 @@ impl PPU {
                         }
                         let idx = self.oam_evaluated[i].tile_index;
                         let addr = self.sprite_pattern_table_addr + idx as u16 * 8 + (next_y - self.oam_evaluated[i].y) as u16;
-                        self.oam_evaluated[i].tile_lo.load(self.ppu_vram[addr as usize]);
-                        self.oam_evaluated[i].tile_hi.load(self.ppu_vram[addr as usize + 8]);
+                        self.oam_evaluated[i].tile_lo.load(mem.read_u8(addr));
+                        self.oam_evaluated[i].tile_hi.load(mem.read_u8(addr + 8));
                     }
                 }
             }
@@ -333,7 +331,7 @@ impl PPU {
                     (Some(idx), None) => idx,
                     (Some(idx), Some((_, true))) => idx,
                 };
-                self.frame_buffer[(y * 256 + x) as usize] = self.ppu_vram[Self::get_ppu_addr(0x3f00 + idx as u16)];
+                self.frame_buffer[(y * 256 + x) as usize] = mem.read_u8(0x3f00 + idx as u16);
 
                 // Sprite 0 hit
                 if bg_idx.is_some() && sprite_idx.is_some() && x < 255 {
@@ -511,18 +509,17 @@ impl PPU {
         self.reg_w.set(!self.reg_w.get());
     }
 
-    pub fn read_ppudata(&self) -> u8 {
+    pub fn read_ppudata<M: Memory>(&self, mem: &M) -> u8 {
         // TODO: use internal buffer instead of the direct read
-        let result = self.ppu_vram[Self::get_ppu_addr(self.reg_v.get())];
+        let result = mem.read_u8(self.reg_v.get());
         self.reg_v
             .set(self.reg_v.get().wrapping_add(self.vram_incr as u16));
         result
     }
 
-    pub fn write_ppudata(&mut self, value: u8) {
+    pub fn write_ppudata<M: Memory>(&mut self, mem: &mut M, value: u8) {
         self.latch = value;
-        let addr = Self::get_ppu_addr(self.reg_v.get());
-        self.ppu_vram[addr] = value;
+        mem.write_u8(self.reg_v.get(), value);
         self.reg_v
             .set(self.reg_v.get().wrapping_add(self.vram_incr as u16));
     }
@@ -541,30 +538,60 @@ impl PPU {
         self.oam_data[self.oam_addr.get().wrapping_add(index) as usize] = value;
     }
 
-    fn get_ppu_addr(mut addr: u16) -> usize {
-        addr &= 0x3fff;
-        (match addr {
-            0x0000..=0x2fff => addr,
-            0x3000..=0x3eff => addr - 0x1000,
-            0x3f00..=0x3fff => 0x3f00 | (addr & 0x1f),
-            _ => unreachable!(),
-        }) as usize
-    }
-
     #[cfg(debug_assertions)]
-    pub fn dump(&self) {
-        std::fs::write("vram_dump.bin", &self.ppu_vram).expect("Failed to dump PPU VRAM");
+    pub fn dump<M: Memory>(&self, mem: &M) {
+        let mut vram = vec![0; 0x4000];
+        for addr in 0..vram.len() {
+            vram[addr] = mem.read_u8(addr as u16);
+        }
+        std::fs::write("vram_dump.bin", &vram).expect("Failed to dump PPU VRAM");
+        let mut img = bmp::Image::new(256, 128);
+        for tile_idx in 0..512 {
+            let tile_base_addr = tile_idx * 16;
+            let img_tile_x = if tile_idx < 256 {
+                (tile_idx % 16) * 8
+            } else {
+                128 + (tile_idx % 16) * 8
+            };
+            let img_tile_y = if tile_idx < 256 {
+                (tile_idx / 16) * 8
+            } else {
+                ((tile_idx / 16) - 16) * 8
+            };
+            for y in 0..8 {
+                let plane0 = mem.read_u8(tile_base_addr + y);
+                let plane1 = mem.read_u8(tile_base_addr + y + 8);
+                for x in 0..8 {
+                    let mut idx = 0;
+                    if plane0 & (1 << x) != 0 {
+                        idx += 1;
+                    }
+                    if plane1 & (1 << x) != 0 {
+                        idx += 2;
+                    }
+                    let pixel = match idx {
+                        0 => bmp::Pixel::new(0, 0, 0),
+                        1 => bmp::Pixel::new(255, 0, 0),
+                        2 => bmp::Pixel::new(0, 255, 0),
+                        3 => bmp::Pixel::new(0, 0, 255),
+                        _ => unreachable!(),
+                    };
+                    img.set_pixel((img_tile_x + x) as u32, (img_tile_y + y) as u32, pixel);
+                }
+            }
+        }
+        img.save("palette.bmp").expect("Failed to dump the palette");
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{cpu::CPU, nes::mmap::MemoryMap, cpu::rp2a03::opcodes::*};
+    use crate::{cpu::CPU, nes::mmap::CpuMemoryMap, cpu::rp2a03::opcodes::*};
 
     #[test]
     fn test_ppu_vram_access() {
         let mut cpu = CPU::new();
-        let mut mmap = MemoryMap::new(0, vec![vec![0; 0x10000]]);
+        let mut mmap = CpuMemoryMap::new(0, vec![vec![0; 0x10000]], vec![vec![0; 0x2000]]);
         cpu.reset(&mut mmap);
 
         for addr in 0..0x4000u16 {

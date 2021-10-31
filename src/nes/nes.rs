@@ -1,11 +1,11 @@
 use crate::{cpu::CPU, mem::Memory, rom::nes::NESFile};
 
-use super::{mmap::MemoryMap, trace::ExecutionTrace};
+use super::{mmap::CpuMemoryMap, trace::ExecutionTrace};
 
 #[allow(clippy::upper_case_acronyms)]
 pub struct NES {
     pub cpu: CPU,
-    pub mmap: MemoryMap,
+    pub mmap: CpuMemoryMap,
 
     total_ticks: u64, // Enough for ~25k years
     next_cpu_tick: u64,
@@ -16,7 +16,7 @@ impl NES {
     pub fn new(rom: NESFile) -> Self {
         let mut nes = NES {
             cpu: CPU::new(),
-            mmap: MemoryMap::new(rom.header.mapper, rom.prg_rom),
+            mmap: CpuMemoryMap::new(rom.header.mapper, rom.prg_rom, rom.chr_rom),
             total_ticks: 0,
             next_cpu_tick: 0,
             next_ppu_tick: 0,
@@ -34,7 +34,7 @@ impl NES {
         self.total_ticks = 7 * 12; // CPU reset takes 7 cycles
                                    // Meanwhile PPU progresses through the first 7 * 3 dots
         for _ in 0..21 {
-            self.mmap.ppu.run_one();
+            self.mmap.ppu.run_one(&self.mmap.ppu_mmap);
         }
         self.next_cpu_tick = self.total_ticks;
         self.next_ppu_tick = self.total_ticks;
@@ -63,7 +63,7 @@ impl NES {
             }
         }
         if self.total_ticks == self.next_ppu_tick {
-            self.mmap.ppu.run_one();
+            self.mmap.ppu.run_one(&self.mmap.ppu_mmap);
             self.next_ppu_tick += 4;
         }
         self.total_ticks += 1;
@@ -135,6 +135,6 @@ impl NES {
 
     #[cfg(debug_assertions)]
     pub fn dump(&self) {
-        self.mmap.ppu.dump();
+        self.mmap.ppu.dump(&self.mmap.ppu_mmap);
     }
 }
