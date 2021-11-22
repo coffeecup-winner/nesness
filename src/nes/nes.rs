@@ -22,6 +22,7 @@ impl NES {
             ppu_clock_divider: ClockDivider::new(),
         };
         nes.reset();
+        nes.mmap.apu.play(); // Should probably be done elsewhere?
         nes
     }
 
