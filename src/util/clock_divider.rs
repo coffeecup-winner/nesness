@@ -13,7 +13,7 @@ impl<const RATIO: u64> ClockDivider<RATIO> {
         self.ticks_until_triggered = 0;
     }
 
-    pub fn global_tick(&mut self) {
+    pub fn tick(&mut self) {
         if self.ticks_until_triggered == 0 {
             self.ticks_until_triggered = RATIO;
         }

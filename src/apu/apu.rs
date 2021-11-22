@@ -4,8 +4,22 @@ use cpal::{
 };
 use raylib::get_random_value;
 
+use crate::apu::frame_sequencer::FrameSequencerMode;
+
+use super::frame_sequencer::FrameSequencer;
+
 pub struct APU {
     stream: Stream,
+
+    // Functional units
+    frame_sequencer: FrameSequencer,
+
+    // Channels
+    is_channel_pulse1_enabled: bool,
+    is_channel_pulse2_enabled: bool,
+    is_channel_triangle_enabled: bool,
+    is_channel_noise_enabled: bool,
+    is_channel_dmc_enabled: bool,
 
     // Registers
     reg_pulse1_0: u8,
@@ -80,7 +94,6 @@ impl APU {
                 &config,
                 |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
                     let x: i16 = get_random_value::<i32>(-100, 100) as i16;
-                    dbg!(x);
                     for frame in data.chunks_mut(2) {
                         for sample in frame.iter_mut() {
                             *sample = Sample::from(&(x as f32 / 100.0));
@@ -94,6 +107,12 @@ impl APU {
 
         APU {
             stream,
+            frame_sequencer: FrameSequencer::new(),
+            is_channel_pulse1_enabled: false,
+            is_channel_pulse2_enabled: false,
+            is_channel_triangle_enabled: false,
+            is_channel_noise_enabled: false,
+            is_channel_dmc_enabled: false,
             reg_pulse1_0: 0,
             reg_pulse1_1: 0,
             reg_pulse1_2: 0,
@@ -133,75 +152,97 @@ impl APU {
         self.stream.play().expect("Failed to start playing audio");
     }
 
+    pub fn tick(&mut self) {
+        self.frame_sequencer.tick();
+    }
+
     pub fn read_pulse1_0(&self) -> u8 {
+        println!("read_pulse1_0");
         self.reg_pulse1_0
     }
 
     pub fn write_pulse1_0(&mut self, value: u8) {
+        println!("write_pulse1_0: {}", value);
         self.reg_pulse1_0 = value;
     }
 
     pub fn read_pulse1_1(&self) -> u8 {
+        println!("read_pulse1_1");
         self.reg_pulse1_1
     }
 
     pub fn write_pulse1_1(&mut self, value: u8) {
+        println!("write_pulse1_1: {}", value);
         self.reg_pulse1_1 = value;
     }
 
     pub fn read_pulse1_2(&self) -> u8 {
+        println!("read_pulse1_2");
         self.reg_pulse1_2
     }
 
     pub fn write_pulse1_2(&mut self, value: u8) {
+        println!("write_pulse1_2: {}", value);
         self.reg_pulse1_2 = value;
     }
 
     pub fn read_pulse1_3(&self) -> u8 {
+        println!("read_pulse1_3");
         self.reg_pulse1_3
     }
 
     pub fn write_pulse1_3(&mut self, value: u8) {
+        println!("write_pulse1_3: {}", value);
         self.reg_pulse1_3 = value;
     }
 
     pub fn read_pulse2_0(&self) -> u8 {
+        println!("read_pulse2_0");
         self.reg_pulse2_0
     }
 
     pub fn write_pulse2_0(&mut self, value: u8) {
+        println!("write_pulse2_0: {}", value);
         self.reg_pulse2_0 = value;
     }
 
     pub fn read_pulse2_1(&self) -> u8 {
+        println!("read_pulse2_1");
         self.reg_pulse2_1
     }
 
     pub fn write_pulse2_1(&mut self, value: u8) {
+        println!("write_pulse2_1: {}", value);
         self.reg_pulse2_1 = value;
     }
 
     pub fn read_pulse2_2(&self) -> u8 {
+        println!("read_pulse2_2");
         self.reg_pulse2_2
     }
 
     pub fn write_pulse2_2(&mut self, value: u8) {
+        println!("write_pulse2_2: {}", value);
         self.reg_pulse2_2 = value;
     }
 
     pub fn read_pulse2_3(&self) -> u8 {
+        println!("read_pulse2_3");
         self.reg_pulse2_3
     }
 
     pub fn write_pulse2_3(&mut self, value: u8) {
+        println!("write_pulse2_3: {}", value);
         self.reg_pulse2_3 = value;
     }
 
     pub fn read_triangle_0(&self) -> u8 {
+        println!("read_triangle_0");
         self.reg_triangle_0
     }
 
     pub fn write_triangle_0(&mut self, value: u8) {
+        println!("write_triangle_0: {}", value);
         self.reg_triangle_0 = value;
     }
 
@@ -214,26 +255,32 @@ impl APU {
     }
 
     pub fn read_triangle_1(&self) -> u8 {
+        println!("read_triangle_1");
         self.reg_triangle_1
     }
 
     pub fn write_triangle_1(&mut self, value: u8) {
+        println!("write_triangle_1: {}", value);
         self.reg_triangle_1 = value;
     }
 
     pub fn read_triangle_2(&self) -> u8 {
+        println!("read_triangle_2");
         self.reg_triangle_2
     }
 
     pub fn write_triangle_2(&mut self, value: u8) {
+        println!("write_triangle_2: {}", value);
         self.reg_triangle_2 = value;
     }
 
     pub fn read_noise_0(&self) -> u8 {
+        println!("read_noise_0");
         self.reg_noise_0
     }
 
     pub fn write_noise_0(&mut self, value: u8) {
+        println!("write_noise_0: {}", value);
         self.reg_noise_0 = value;
     }
 
@@ -246,50 +293,62 @@ impl APU {
     }
 
     pub fn read_noise_1(&self) -> u8 {
+        println!("read_noise_1");
         self.reg_noise_1
     }
 
     pub fn write_noise_1(&mut self, value: u8) {
+        println!("write_noise_1: {}", value);
         self.reg_noise_1 = value;
     }
 
     pub fn read_noise_2(&self) -> u8 {
+        println!("read_noise_2");
         self.reg_noise_2
     }
 
     pub fn write_noise_2(&mut self, value: u8) {
+        println!("write_noise_2: {}", value);
         self.reg_noise_2 = value;
     }
 
     pub fn read_dmc_0(&self) -> u8 {
+        println!("read_dmc_0");
         self.reg_dmc_0
     }
 
     pub fn write_dmc_0(&mut self, value: u8) {
+        println!("write_dmc_0: {}", value);
         self.reg_dmc_0 = value;
     }
 
     pub fn read_dmc_1(&self) -> u8 {
+        println!("read_dmc_1");
         self.reg_dmc_1
     }
 
     pub fn write_dmc_1(&mut self, value: u8) {
+        println!("write_dmc_1: {}", value);
         self.reg_dmc_1 = value;
     }
 
     pub fn read_dmc_2(&self) -> u8 {
+        println!("read_dmc_2");
         self.reg_dmc_2
     }
 
     pub fn write_dmc_2(&mut self, value: u8) {
+        println!("write_dmc_2: {}", value);
         self.reg_dmc_2 = value;
     }
 
     pub fn read_dmc_3(&self) -> u8 {
+        println!("read_dmc_3");
         self.reg_dmc_3
     }
 
     pub fn write_dmc_3(&mut self, value: u8) {
+        println!("write_dmc_3: {}", value);
         self.reg_dmc_3 = value;
     }
 
@@ -302,11 +361,20 @@ impl APU {
     }
 
     pub fn read_status(&self) -> u8 {
+        println!("read_status");
         self.reg_status
     }
 
     pub fn write_status(&mut self, value: u8) {
         self.reg_status = value;
+        self.is_channel_pulse1_enabled = (value & 0x01) == 0x01;
+        self.is_channel_pulse2_enabled = (value & 0x01) == 0x02;
+        self.is_channel_triangle_enabled = (value & 0x01) == 0x04;
+        self.is_channel_noise_enabled = (value & 0x01) == 0x08;
+        self.is_channel_dmc_enabled = (value & 0x01) == 0x10;
+        // TODO: channel length counters clear
+        // TODO: DMC clear
+        // TODO: interrupt clear
     }
 
     pub fn read_dummy_x16(&self) -> u8 {
@@ -323,6 +391,13 @@ impl APU {
 
     pub fn write_frame_counter(&mut self, value: u8) {
         self.reg_frame_counter = value;
+        let mode = if (value & 0x80) == 0x80 {
+            FrameSequencerMode::FiveStep
+        } else {
+            FrameSequencerMode::FourStep
+        };
+        let disable_irq = (value & 0x40) == 0x40;
+        self.frame_sequencer.reset(mode, disable_irq);
     }
 
     pub fn read_dummy_x18(&self) -> u8 {

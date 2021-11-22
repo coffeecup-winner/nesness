@@ -67,8 +67,9 @@ impl NES {
             self.mmap.ppu.run_one(&self.mmap.ppu_mmap);
         }
         self.total_ticks += 1;
-        self.cpu_clock_divider.global_tick();
-        self.ppu_clock_divider.global_tick();
+        self.cpu_clock_divider.tick();
+        self.ppu_clock_divider.tick();
+        self.mmap.apu.tick();
     }
 
     pub fn run_with_trace<T: ExecutionTrace>(&mut self, mut trace: T) {
