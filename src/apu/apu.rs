@@ -2,34 +2,56 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Sample, SampleFormat, Stream,
 };
-use raylib::get_random_value;
+use crossbeam::channel::{bounded, Sender};
 
-use crate::apu::frame_sequencer::FrameSequencerMode;
+use crate::{apu::frame_sequencer::FrameSequencerMode, util::ClockDivider};
 
-use super::frame_sequencer::FrameSequencer;
+use super::{ch_pulse::ChannelPulse, frame_sequencer::FrameSequencer};
+
+struct AudioBuffer {
+    buffer: Vec<u8>,
+    idx_write: usize,
+    sender: Sender<Vec<u8>>,
+}
+
+impl AudioBuffer {
+    pub fn new(size: usize, sender: Sender<Vec<u8>>) -> Self {
+        AudioBuffer {
+            buffer: vec![0; size],
+            idx_write: 0,
+            sender,
+        }
+    }
+
+    pub fn push(&mut self, value: u8) {
+        self.buffer[self.idx_write] = value;
+        self.idx_write += 1;
+        if self.idx_write == self.buffer.len() {
+            self.idx_write = 0;
+            // TODO: Use a circular buffer instead of copying
+            self.sender
+                .send(self.buffer.clone())
+                .expect("Failed to send the audio buffer");
+        }
+    }
+}
 
 pub struct APU {
     stream: Stream,
+    audio_buffer: AudioBuffer,
+    audio_clock_divider: ClockDivider<400>, // TODO: fix this value
 
     // Functional units
     frame_sequencer: FrameSequencer,
 
     // Channels
-    is_channel_pulse1_enabled: bool,
-    is_channel_pulse2_enabled: bool,
+    channel_pulse1: ChannelPulse,
+    channel_pulse2: ChannelPulse,
     is_channel_triangle_enabled: bool,
     is_channel_noise_enabled: bool,
     is_channel_dmc_enabled: bool,
 
     // Registers
-    reg_pulse1_0: u8,
-    reg_pulse1_1: u8,
-    reg_pulse1_2: u8,
-    reg_pulse1_3: u8,
-    reg_pulse2_0: u8,
-    reg_pulse2_1: u8,
-    reg_pulse2_2: u8,
-    reg_pulse2_3: u8,
     reg_triangle_0: u8,
     reg_dummy_x09: u8,
     reg_triangle_1: u8,
@@ -71,6 +93,7 @@ impl APU {
             .with_max_sample_rate();
         let sample_format = main_config.sample_format();
         let config = main_config.into();
+        let (s, r) = bounded::<Vec<u8>>(1);
         let stream = match sample_format {
             SampleFormat::I16 => device.build_output_stream(
                 &config,
@@ -92,9 +115,10 @@ impl APU {
             ),
             SampleFormat::F32 => device.build_output_stream(
                 &config,
-                |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-                    let x: i16 = get_random_value::<i32>(-100, 100) as i16;
-                    for frame in data.chunks_mut(2) {
+                move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+                    let buf = r.recv().expect("Failed to receive the audio buffer");
+                    for (i, frame) in data.chunks_mut(2).enumerate() {
+                        let x = buf[i % buf.len()] * 10;
                         for sample in frame.iter_mut() {
                             *sample = Sample::from(&(x as f32 / 100.0));
                         }
@@ -107,20 +131,14 @@ impl APU {
 
         APU {
             stream,
+            audio_buffer: AudioBuffer::new(480, s),
+            audio_clock_divider: ClockDivider::new(),
             frame_sequencer: FrameSequencer::new(),
-            is_channel_pulse1_enabled: false,
-            is_channel_pulse2_enabled: false,
+            channel_pulse1: ChannelPulse::new(),
+            channel_pulse2: ChannelPulse::new(),
             is_channel_triangle_enabled: false,
             is_channel_noise_enabled: false,
             is_channel_dmc_enabled: false,
-            reg_pulse1_0: 0,
-            reg_pulse1_1: 0,
-            reg_pulse1_2: 0,
-            reg_pulse1_3: 0,
-            reg_pulse2_0: 0,
-            reg_pulse2_1: 0,
-            reg_pulse2_2: 0,
-            reg_pulse2_3: 0,
             reg_triangle_0: 0,
             reg_dummy_x09: 0,
             reg_triangle_1: 0,
@@ -153,87 +171,86 @@ impl APU {
     }
 
     pub fn tick(&mut self) {
-        self.frame_sequencer.tick();
+        let triggers = self.frame_sequencer.tick();
+        if triggers.frame_interrupt {
+            dbg!("TODO: interrupt");
+        }
+        if triggers.length_counters {
+            self.channel_pulse1.tick_length_counter();
+        }
+        if triggers.envelopes {
+            self.channel_pulse1.tick_envelope_generator();
+        }
+        self.channel_pulse1.tick_timer();
+        self.channel_pulse2.tick_timer();
+        self.audio_clock_divider.tick();
+        if self.audio_clock_divider.is_triggered() {
+            self.audio_buffer.push(self.channel_pulse2.get_volume());
+        }
     }
 
     pub fn read_pulse1_0(&self) -> u8 {
-        println!("read_pulse1_0");
-        self.reg_pulse1_0
+        self.channel_pulse1.read_reg_0()
     }
 
     pub fn write_pulse1_0(&mut self, value: u8) {
-        println!("write_pulse1_0: {}", value);
-        self.reg_pulse1_0 = value;
+        self.channel_pulse1.write_reg_0(value)
     }
 
     pub fn read_pulse1_1(&self) -> u8 {
-        println!("read_pulse1_1");
-        self.reg_pulse1_1
+        self.channel_pulse1.read_reg_1()
     }
 
     pub fn write_pulse1_1(&mut self, value: u8) {
-        println!("write_pulse1_1: {}", value);
-        self.reg_pulse1_1 = value;
+        self.channel_pulse1.write_reg_1(value)
     }
 
     pub fn read_pulse1_2(&self) -> u8 {
-        println!("read_pulse1_2");
-        self.reg_pulse1_2
+        self.channel_pulse1.read_reg_2()
     }
 
     pub fn write_pulse1_2(&mut self, value: u8) {
-        println!("write_pulse1_2: {}", value);
-        self.reg_pulse1_2 = value;
+        self.channel_pulse1.write_reg_2(value)
     }
 
     pub fn read_pulse1_3(&self) -> u8 {
-        println!("read_pulse1_3");
-        self.reg_pulse1_3
+        self.channel_pulse1.read_reg_3()
     }
 
     pub fn write_pulse1_3(&mut self, value: u8) {
-        println!("write_pulse1_3: {}", value);
-        self.reg_pulse1_3 = value;
+        self.channel_pulse1.write_reg_3(value)
     }
 
     pub fn read_pulse2_0(&self) -> u8 {
-        println!("read_pulse2_0");
-        self.reg_pulse2_0
+        self.channel_pulse2.read_reg_0()
     }
 
     pub fn write_pulse2_0(&mut self, value: u8) {
-        println!("write_pulse2_0: {}", value);
-        self.reg_pulse2_0 = value;
+        self.channel_pulse2.write_reg_0(value)
     }
 
     pub fn read_pulse2_1(&self) -> u8 {
-        println!("read_pulse2_1");
-        self.reg_pulse2_1
+        self.channel_pulse2.read_reg_1()
     }
 
     pub fn write_pulse2_1(&mut self, value: u8) {
-        println!("write_pulse2_1: {}", value);
-        self.reg_pulse2_1 = value;
+        self.channel_pulse2.write_reg_1(value)
     }
 
     pub fn read_pulse2_2(&self) -> u8 {
-        println!("read_pulse2_2");
-        self.reg_pulse2_2
+        self.channel_pulse2.read_reg_2()
     }
 
     pub fn write_pulse2_2(&mut self, value: u8) {
-        println!("write_pulse2_2: {}", value);
-        self.reg_pulse2_2 = value;
+        self.channel_pulse2.write_reg_2(value)
     }
 
     pub fn read_pulse2_3(&self) -> u8 {
-        println!("read_pulse2_3");
-        self.reg_pulse2_3
+        self.channel_pulse2.read_reg_3()
     }
 
     pub fn write_pulse2_3(&mut self, value: u8) {
-        println!("write_pulse2_3: {}", value);
-        self.reg_pulse2_3 = value;
+        self.channel_pulse2.write_reg_3(value)
     }
 
     pub fn read_triangle_0(&self) -> u8 {
@@ -367,8 +384,8 @@ impl APU {
 
     pub fn write_status(&mut self, value: u8) {
         self.reg_status = value;
-        self.is_channel_pulse1_enabled = (value & 0x01) == 0x01;
-        self.is_channel_pulse2_enabled = (value & 0x01) == 0x02;
+        self.channel_pulse1.set_enabled((value & 0x01) == 0x01);
+        self.channel_pulse2.set_enabled((value & 0x01) == 0x02);
         self.is_channel_triangle_enabled = (value & 0x01) == 0x04;
         self.is_channel_noise_enabled = (value & 0x01) == 0x08;
         self.is_channel_dmc_enabled = (value & 0x01) == 0x10;

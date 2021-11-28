@@ -17,9 +17,9 @@ pub struct FrameSequencer {
 
 #[derive(Clone, Copy)]
 pub struct FrameSequencerTriggers {
-    envelopes: bool,
-    length_counters: bool,
-    frame_interrupt: bool,
+    pub envelopes: bool,
+    pub length_counters: bool,
+    pub frame_interrupt: bool,
 }
 
 impl FrameSequencer {
