@@ -35,6 +35,7 @@ impl AudioBuffer {
     }
 }
 
+#[allow(clippy::upper_case_acronyms)]
 pub struct APU {
     stream: Stream,
     audio_buffer: AudioBuffer,
@@ -388,10 +389,10 @@ impl APU {
     pub fn write_status(&mut self, value: u8) {
         self.reg_status = value;
         self.channel_pulse1.set_enabled((value & 0x01) == 0x01);
-        self.channel_pulse2.set_enabled((value & 0x01) == 0x02);
-        self.is_channel_triangle_enabled = (value & 0x01) == 0x04;
-        self.is_channel_noise_enabled = (value & 0x01) == 0x08;
-        self.is_channel_dmc_enabled = (value & 0x01) == 0x10;
+        self.channel_pulse2.set_enabled((value & 0x02) == 0x02);
+        self.is_channel_triangle_enabled = (value & 0x04) == 0x04;
+        self.is_channel_noise_enabled = (value & 0x08) == 0x08;
+        self.is_channel_dmc_enabled = (value & 0x10) == 0x10;
         // TODO: channel length counters clear
         // TODO: DMC clear
         // TODO: interrupt clear

@@ -226,7 +226,7 @@ impl PPU {
                     // Horizontal position copy from t to v
                     self.reg_v
                         .set((self.reg_v.get() & !0x041f) | (self.reg_t & 0x041f));
-                } else if (c >= 280 && c <= 304) && self.current_scanline == 261 {
+                } else if (280..=304).contains(&c) && self.current_scanline == 261 {
                     // Vertical position copy from t to v
                     self.reg_v
                         .set((self.reg_v.get() & !0x7be0) | (self.reg_t & 0x7be0));
@@ -543,8 +543,8 @@ impl PPU {
     #[cfg(debug_assertions)]
     pub fn dump<M: Memory>(&self, mem: &M) {
         let mut vram = vec![0; 0x4000];
-        for addr in 0..vram.len() {
-            vram[addr] = mem.read_u8(addr as u16);
+        for (addr, data) in vram.iter_mut().enumerate() {
+            *data = mem.read_u8(addr as u16);
         }
         std::fs::write("vram_dump.bin", &vram).expect("Failed to dump PPU VRAM");
         let mut img = bmp::Image::new(256, 128);

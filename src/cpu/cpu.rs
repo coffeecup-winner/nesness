@@ -862,7 +862,7 @@ impl CPU {
             AddressingMode::Relative => {
                 let offset = self.get_next_byte(mem) as i8;
                 let offset_u16 = (0x100 + offset as i16) as u16;
-                let addr = (self.pc - 0x100 + offset_u16) as u16;
+                let addr = self.pc - 0x100 + offset_u16;
                 let has_crossed_page = (self.pc & 0x0100) != (addr & 0x0100);
                 AddressedByte::new(addr, mem.read_u8(addr), has_crossed_page)
             }

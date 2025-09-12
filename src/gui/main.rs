@@ -10,16 +10,13 @@ pub fn gui_main() {
     let rom = NESFile::load(&data).expect("Failed to load the ROM");
     let mut nes = NES::new(rom);
 
-    match std::env::args().nth(2) {
-        Some(trace_path) => {
-            let data = std::fs::read(trace_path).expect("Failed to read the trace file");
-            let text = String::from_utf8_lossy(&data).into_owned();
-            let trace = FceuxTrace::new(&text);
-            nes.run_with_trace(trace);
-            println!("Trace run finished");
-            return;
-        }
-        None => {}
+    if let Some(trace_path) = std::env::args().nth(2) {
+        let data = std::fs::read(trace_path).expect("Failed to read the trace file");
+        let text = String::from_utf8_lossy(&data).into_owned();
+        let trace = FceuxTrace::new(&text);
+        nes.run_with_trace(trace);
+        println!("Trace run finished");
+        return;
     }
 
     let (mut rl, thread) = raylib::init()

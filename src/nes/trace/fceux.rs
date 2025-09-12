@@ -26,7 +26,7 @@ pub struct FceuxTrace<'a> {
 impl<'a> FceuxTrace<'a> {
     pub fn new(text: &'a str) -> Self {
         FceuxTrace {
-            lines: text.lines().into_iter().skip(1).collect(),
+            lines: text.lines().skip(1).collect(),
             pos: 0,
             total_cycles: 0,
             reg_a: 0,
