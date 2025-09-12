@@ -99,19 +99,21 @@ impl APU {
                 &config,
                 |data: &mut [i16], _: &cpal::OutputCallbackInfo| {
                     for sample in data.iter_mut() {
-                        *sample = Sample::from(&0.0);
+                        *sample = 0;
                     }
                 },
                 |_| {},
+                None,
             ),
             SampleFormat::U16 => device.build_output_stream(
                 &config,
                 |data: &mut [u16], _: &cpal::OutputCallbackInfo| {
                     for sample in data.iter_mut() {
-                        *sample = Sample::from(&0.0);
+                        *sample = 0;
                     }
                 },
                 |_| {},
+                None,
             ),
             SampleFormat::F32 => device.build_output_stream(
                 &config,
@@ -120,12 +122,14 @@ impl APU {
                     for (i, frame) in data.chunks_mut(2).enumerate() {
                         let x = buf[i % buf.len()] * 10;
                         for sample in frame.iter_mut() {
-                            *sample = Sample::from(&(x as f32 / 100.0));
+                            *sample = x as f32 / 100.0;
                         }
                     }
                 },
                 |_| {},
+                None,
             ),
+            _ => panic!("Unsupported sample format"),
         }
         .unwrap();
 
