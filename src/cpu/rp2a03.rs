@@ -111,6 +111,7 @@ pub enum AddressingMode {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Info {
     pub opcode: u8,                 // Actual opcode value
     pub insn: Instruction,          // Decoded logical instruction

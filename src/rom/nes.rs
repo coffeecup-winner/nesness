@@ -15,6 +15,7 @@ pub enum TVSystem {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct NESHeader {
     pub is_nes2_format: bool,
     pub tv_system: TVSystem,

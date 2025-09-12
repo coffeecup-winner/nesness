@@ -8,6 +8,7 @@ pub trait Memory {
         result
     }
 
+    #[allow(dead_code)]
     fn write_u16(&mut self, addr: u16, value: u16) {
         self.write_u8(addr, value as u8);
         self.write_u8(addr + 1, (value >> 8) as u8);

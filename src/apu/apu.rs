@@ -1,6 +1,5 @@
 use cpal::{
-    traits::{DeviceTrait, HostTrait, StreamTrait},
-    Sample, SampleFormat, Stream,
+    traits::{DeviceTrait, HostTrait, StreamTrait}, SampleFormat, Stream,
 };
 use crossbeam::channel::{bounded, Sender};
 
