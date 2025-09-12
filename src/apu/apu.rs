@@ -1,5 +1,8 @@
+use core::panic;
+
 use cpal::{
-    traits::{DeviceTrait, HostTrait, StreamTrait}, SampleFormat, Stream,
+    traits::{DeviceTrait, HostTrait, StreamTrait},
+    SampleFormat, Stream,
 };
 use crossbeam::channel::{bounded, Sender};
 
@@ -88,33 +91,13 @@ impl APU {
             .supported_output_configs()
             .expect("Failed to get supported output configs");
         let main_config = configs
-            .next()
+            .find(|c| c.sample_format() == SampleFormat::F32 && c.channels() == 2)
             .expect("No output configs")
             .with_max_sample_rate();
         let sample_format = main_config.sample_format();
         let config = main_config.into();
         let (s, r) = bounded::<Vec<u8>>(1);
         let stream = match sample_format {
-            SampleFormat::I16 => device.build_output_stream(
-                &config,
-                |data: &mut [i16], _: &cpal::OutputCallbackInfo| {
-                    for sample in data.iter_mut() {
-                        *sample = 0;
-                    }
-                },
-                |_| {},
-                None,
-            ),
-            SampleFormat::U16 => device.build_output_stream(
-                &config,
-                |data: &mut [u16], _: &cpal::OutputCallbackInfo| {
-                    for sample in data.iter_mut() {
-                        *sample = 0;
-                    }
-                },
-                |_| {},
-                None,
-            ),
             SampleFormat::F32 => device.build_output_stream(
                 &config,
                 move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
@@ -129,7 +112,7 @@ impl APU {
                 |_| {},
                 None,
             ),
-            _ => panic!("Unsupported sample format"),
+            _ => panic!("Invalid sample format"),
         }
         .unwrap();
 
