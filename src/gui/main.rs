@@ -26,6 +26,7 @@ pub fn gui_main() {
 
     rl.set_target_fps(60);
 
+    let mut last = std::time::Instant::now();
     while !rl.window_should_close() {
         let mut d = rl.begin_drawing(&thread);
 
@@ -58,5 +59,13 @@ pub fn gui_main() {
                 );
             }
         }
+
+        std::mem::drop(d);
+
+        let now = std::time::Instant::now();
+        let elapsed = now.duration_since(last);
+        let fps = 1.0 / elapsed.as_secs_f32();
+        last = now;
+        rl.set_window_title(&thread, &format!("NESNESS v0.1 - FPS: {:.2}", fps));
     }
 }

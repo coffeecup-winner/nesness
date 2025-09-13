@@ -4,7 +4,7 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     SampleFormat, Stream,
 };
-use crossbeam::channel::{bounded, Sender};
+use crossbeam::channel::{unbounded, Sender};
 
 use crate::{apu::frame_sequencer::FrameSequencerMode, util::ClockDivider};
 
@@ -105,7 +105,7 @@ impl APU {
             .with_max_sample_rate();
         let sample_format = main_config.sample_format();
         let config = main_config.into();
-        let (s, r) = bounded::<Vec<u8>>(1);
+        let (s, r) = unbounded::<Vec<u8>>();
         let stream = match sample_format {
             SampleFormat::F32 => device.build_output_stream(
                 &config,
