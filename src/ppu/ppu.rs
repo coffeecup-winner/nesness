@@ -54,10 +54,12 @@ pub struct PPU {
     reg_w: Cell<bool>, // Write toggle
 
     // Internal temp storage for data fetching
+    temp_tile_idx: u8,
+    temp_tile_attr: u8,
+    temp_tile_pattern_lo: u8,
+    temp_tile_pattern_hi: u8,
     current_tile_idx: u8,
     current_tile_attr: u8,
-    current_tile_pattern_lo: u8,
-    current_tile_pattern_hi: u8,
     shreg_bg_tile_lo: ShiftRegister16,
     shreg_bg_tile_hi: ShiftRegister16,
 
@@ -107,10 +109,12 @@ impl PPU {
             reg_t: 0,
             reg_x: 0,
             reg_w: Cell::new(false),
+            temp_tile_idx: 0,
+            temp_tile_attr: 0,
+            temp_tile_pattern_lo: 0,
+            temp_tile_pattern_hi: 0,
             current_tile_idx: 0,
             current_tile_attr: 0,
-            current_tile_pattern_lo: 0,
-            current_tile_pattern_hi: 0,
             shreg_bg_tile_lo: ShiftRegister16::new(),
             shreg_bg_tile_hi: ShiftRegister16::new(),
             latch: 0,
@@ -144,25 +148,31 @@ impl PPU {
                 // Tile fetch
                 // NOTE: unused nametable fetches are not implemented
                 let c = self.current_cycle;
-                if (c > 0 && c <= 256) || (c > 320 && c <= 336) {
+                if (1..=256).contains(&c) || (321..=336).contains(&c) {
                     match c % 8 {
+                        0 => {
+                            let tile_addr = 0x2000 | (self.reg_v.get() & 0x0fff);
+                            self.temp_tile_idx = mem.read_u8(tile_addr);
+                        }
                         1 => {
                             // Do nothing, the fetch happens on the next cycle
                             // This might have to be changed to be more precise
                         }
                         2 => {
-                            let tile_addr = 0x2000 | (self.reg_v.get() & 0x0fff);
-                            self.current_tile_idx = mem.read_u8(tile_addr);
+                            let v = self.reg_v.get();
+                            let attr_addr =
+                                0x23c0 | (v & 0x0c00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07);
+                            self.temp_tile_attr = mem.read_u8(attr_addr);
                         }
                         3 => {
                             // Do nothing, the fetch happens on the next cycle
                             // This might have to be changed to be more precise
                         }
                         4 => {
-                            let v = self.reg_v.get();
-                            let attr_addr =
-                                0x23c0 | (v & 0x0c00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07);
-                            self.current_tile_attr = mem.read_u8(attr_addr);
+                            let addr = self.background_pattern_table_addr
+                                + self.temp_tile_idx as u16 * 16
+                                + self.current_scanline % 8;
+                            self.temp_tile_pattern_lo = mem.read_u8(addr);
                         }
                         5 => {
                             // Do nothing, the fetch happens on the next cycle
@@ -170,29 +180,25 @@ impl PPU {
                         }
                         6 => {
                             let addr = self.background_pattern_table_addr
-                                + self.current_tile_idx as u16 * 16
-                                + self.current_scanline % 8;
-                            self.current_tile_pattern_lo = mem.read_u8(addr);
-                            self.shreg_bg_tile_lo.feed(self.current_tile_pattern_lo);
-                        }
-                        7 => {
-                            // Do nothing, the fetch happens on the next cycle
-                            // This might have to be changed to be more precise
-                        }
-                        0 => {
-                            let addr = self.background_pattern_table_addr
-                                + self.current_tile_idx as u16 * 16
+                                + self.temp_tile_idx as u16 * 16
                                 + self.current_scanline % 8
                                 + 8;
-                            self.current_tile_pattern_hi = mem.read_u8(addr);
-                            self.shreg_bg_tile_hi.feed(self.current_tile_pattern_hi);
+                            self.temp_tile_pattern_hi = mem.read_u8(addr);
+                        }
+                        7 => {
+                            self.current_tile_idx = self.temp_tile_idx;
+                            self.current_tile_attr = self.temp_tile_attr;
+                            self.shreg_bg_tile_lo.feed(self.temp_tile_pattern_lo);
+                            self.shreg_bg_tile_hi.feed(self.temp_tile_pattern_hi);
+                            // Do nothing, the fetch happens on the next cycle
+                            // This might have to be changed to be more precise
                         }
                         _ => unreachable!(),
                     }
                 }
 
                 // Coordinate increment
-                if ((c > 0 && c <= 248) || (c > 320 && c <= 336)) && c % 8 == 0 {
+                if ((0..=248).contains(&c) || (320..=336).contains(&c)) && c % 8 == 7 {
                     // Increment coarse X
                     let v = self.reg_v.get();
                     if (v & 0x001f) == 0x001f {
@@ -282,9 +288,8 @@ impl PPU {
             }
 
             // Rendering
-            if self.current_scanline < 240 && (4..260).contains(&self.current_cycle) {
-                // PPU starts rendering a scanline from cycle 4
-                let x = self.current_cycle - 4;
+            if self.current_scanline < 240 && (1..=256).contains(&self.current_cycle) {
+                let x = self.current_cycle - 1;
                 let y = self.current_scanline;
 
                 let bg_idx =
