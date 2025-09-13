@@ -17,12 +17,15 @@ fn test_inc() {
     let v = 0x40;
     let zpg = 0x80;
     let abs = 0x1234;
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        INC_ZPG, zpg,
-        INC_ZPX, zpg,
-        INC_ABS, lo(abs), hi(abs),
-        INC_ABX, lo(abs), hi(abs),
-    ]);
+    let (mut cpu, mut mem) = test_cpu(
+        &vec![
+            vec![INC_ZPG, zpg],
+            vec![INC_ZPX, zpg],
+            vec![INC_ABS, lo(abs), hi(abs)],
+            vec![INC_ABX, lo(abs), hi(abs)],
+        ]
+        .concat(),
+    );
     cpu.reg_x = x;
     mem[zpg as usize] = v + 0;
     mem[(zpg + x) as usize] = v + 1;
@@ -83,12 +86,15 @@ fn test_dec() {
     let v = 0x40;
     let zpg = 0x80;
     let abs = 0x1234;
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        DEC_ZPG, zpg,
-        DEC_ZPX, zpg,
-        DEC_ABS, lo(abs), hi(abs),
-        DEC_ABX, lo(abs), hi(abs),
-    ]);
+    let (mut cpu, mut mem) = test_cpu(
+        &vec![
+            vec![DEC_ZPG, zpg],
+            vec![DEC_ZPX, zpg],
+            vec![DEC_ABS, lo(abs), hi(abs)],
+            vec![DEC_ABX, lo(abs), hi(abs)],
+        ]
+        .concat(),
+    );
     cpu.reg_x = x;
     mem[zpg as usize] = v + 1;
     mem[(zpg + x) as usize] = v + 2;

@@ -54,12 +54,36 @@ fn test_rti() {
     for addr in 0..=0xffff {
         let (mut cpu, mut mem) = test_cpu(&vec![RTI_IMP]);
         let mut p = 0x20;
-        p |= if ((addr as u8) & flags::C) != 0 { flags::C } else { 0 };
-        p |= if ((addr as u8) & flags::Z) != 0 { flags::Z } else { 0 };
-        p |= if ((addr as u8) & flags::I) != 0 { flags::I } else { 0 };
-        p |= if ((addr as u8) & flags::B) != 0 { flags::B } else { 0 };
-        p |= if ((addr as u8) & flags::V) != 0 { flags::V } else { 0 };
-        p |= if ((addr as u8) & flags::N) != 0 { flags::N } else { 0 };
+        p |= if ((addr as u8) & flags::C) != 0 {
+            flags::C
+        } else {
+            0
+        };
+        p |= if ((addr as u8) & flags::Z) != 0 {
+            flags::Z
+        } else {
+            0
+        };
+        p |= if ((addr as u8) & flags::I) != 0 {
+            flags::I
+        } else {
+            0
+        };
+        p |= if ((addr as u8) & flags::B) != 0 {
+            flags::B
+        } else {
+            0
+        };
+        p |= if ((addr as u8) & flags::V) != 0 {
+            flags::V
+        } else {
+            0
+        };
+        p |= if ((addr as u8) & flags::N) != 0 {
+            flags::N
+        } else {
+            0
+        };
         mem[0x100] = p;
         mem[0x101] = lo(addr);
         mem[0x102] = hi(addr);

@@ -49,7 +49,7 @@ impl<'a> ExecutionTrace for FceuxTrace<'a> {
     fn cycles_start_with_0(&self) -> bool {
         true
     }
-    
+
     fn advance(&mut self) -> bool {
         lazy_static! {
             static ref REGEX: Regex = Regex::new("^f\\d+ +c(\\d+) +i\\d+ +A:([0-9A-F]{2}) X:([0-9A-F]{2}) Y:([0-9A-F]{2}) S:([0-9A-F]{2}) P:([nN])([vV])u([bB])([dD])([iI])([zZ])([cC]) +\\$([0-9A-F]{4}):.*$").expect("Failed to create a regex");

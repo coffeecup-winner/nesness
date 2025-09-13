@@ -233,7 +233,11 @@ impl PPU {
                 }
 
                 // Sprite evaluation
-                let next_y = if self.current_scanline == 239 { 0 } else { self.current_scanline + 1} as u8;
+                let next_y = if self.current_scanline == 239 {
+                    0
+                } else {
+                    self.current_scanline + 1
+                } as u8;
                 if c == 1 {
                     if self.current_scanline != 261 {
                         for i in 0..self.oam_evaluated.len() {
@@ -268,7 +272,9 @@ impl PPU {
                             break;
                         }
                         let idx = self.oam_evaluated[i].tile_index;
-                        let addr = self.sprite_pattern_table_addr + idx as u16 * 8 + (next_y - self.oam_evaluated[i].y) as u16;
+                        let addr = self.sprite_pattern_table_addr
+                            + idx as u16 * 8
+                            + (next_y - self.oam_evaluated[i].y) as u16;
                         self.oam_evaluated[i].tile_lo.load(mem.read_u8(addr));
                         self.oam_evaluated[i].tile_hi.load(mem.read_u8(addr + 8));
                     }
@@ -281,50 +287,52 @@ impl PPU {
                 let x = self.current_cycle - 4;
                 let y = self.current_scanline;
 
-                let bg_idx = if !self.show_background || (!self.show_background_leftmost_8pix && x < 8) {
-                    None
-                } else {
-                    let bit0 = (self.shreg_bg_tile_lo.hi() >> (7 - self.reg_x)) & 0x01;
-                    let bit1 = (self.shreg_bg_tile_hi.hi() >> (7 - self.reg_x)) & 0x01;
-                    if bit0 == 0 && bit1 == 0 {
+                let bg_idx =
+                    if !self.show_background || (!self.show_background_leftmost_8pix && x < 8) {
                         None
                     } else {
-                        // TODO: shift register
-                        let attr = self.current_tile_attr;
-                        let shift = match (x / 32 > 15, y / 32 > 15) {
-                            (true, true) => 6,
-                            (true, false) => 2,
-                            (false, true) => 4,
-                            (false, false) => 0,
-                        };
-                        Some((((attr >> shift) & 0x03) << 2) | (bit1 << 1) | bit0)
-                    }
-                };
-
-                let sprite_idx = if !self.show_sprites || (!self.show_sprites_leftmost_8pix && x < 8) {
-                    None
-                } else {
-                    let mut result = None;
-                    for s in &self.oam_evaluated {
-                        if !s.is_valid || s.x != 0 {
-                            break;
-                        }
-
-                        let bit0 = if s.tile_lo.get_u1() { 1 } else { 0 };
-                        let bit1 = if s.tile_hi.get_u1() { 1 } else { 0 };
+                        let bit0 = (self.shreg_bg_tile_lo.hi() >> (7 - self.reg_x)) & 0x01;
+                        let bit1 = (self.shreg_bg_tile_hi.hi() >> (7 - self.reg_x)) & 0x01;
                         if bit0 == 0 && bit1 == 0 {
-                            continue;
+                            None
+                        } else {
+                            // TODO: shift register
+                            let attr = self.current_tile_attr;
+                            let shift = match (x / 32 > 15, y / 32 > 15) {
+                                (true, true) => 6,
+                                (true, false) => 2,
+                                (false, true) => 4,
+                                (false, false) => 0,
+                            };
+                            Some((((attr >> shift) & 0x03) << 2) | (bit1 << 1) | bit0)
                         }
+                    };
 
-                        let attr = s.attributes;
-                        let idx = ((attr & 0x03) << 2) | (bit1 << 1) | bit0;
+                let sprite_idx =
+                    if !self.show_sprites || (!self.show_sprites_leftmost_8pix && x < 8) {
+                        None
+                    } else {
+                        let mut result = None;
+                        for s in &self.oam_evaluated {
+                            if !s.is_valid || s.x != 0 {
+                                break;
+                            }
 
-                        result = Some((idx, (s.attributes & 0x20) != 0));
-                        break;
-                        // TODO: priority
-                    }
-                    result
-                };
+                            let bit0 = if s.tile_lo.get_u1() { 1 } else { 0 };
+                            let bit1 = if s.tile_hi.get_u1() { 1 } else { 0 };
+                            if bit0 == 0 && bit1 == 0 {
+                                continue;
+                            }
+
+                            let attr = s.attributes;
+                            let idx = ((attr & 0x03) << 2) | (bit1 << 1) | bit0;
+
+                            result = Some((idx, (s.attributes & 0x20) != 0));
+                            break;
+                            // TODO: priority
+                        }
+                        result
+                    };
 
                 let idx = match (bg_idx, sprite_idx) {
                     (None, None) => 0,
@@ -588,7 +596,7 @@ impl PPU {
 
 #[cfg(test)]
 mod tests {
-    use crate::{cpu::CPU, nes::mmap::CpuMemoryMap, cpu::rp2a03::opcodes::*};
+    use crate::{cpu::rp2a03::opcodes::*, cpu::CPU, nes::mmap::CpuMemoryMap};
 
     #[test]
     fn test_ppu_vram_access() {
@@ -598,22 +606,19 @@ mod tests {
 
         for addr in 0..0x4000u16 {
             let code = vec![
-                LDX_IMM, ((addr >> 8) as u8),
-                LDY_IMM, (addr as u8),
-
-                STX_ABS, 0x06, 0x20,
-                STY_ABS, 0x06, 0x20,
-
+                vec![LDX_IMM, ((addr >> 8) as u8)],
+                vec![LDY_IMM, (addr as u8)],
+                vec![STX_ABS, 0x06, 0x20],
+                vec![STY_ABS, 0x06, 0x20],
                 // Write 0xcc
-                LDA_IMM, 0xcc,
-                STA_ABS, 0x07, 0x20,
-
-                STX_ABS, 0x06, 0x20,
-                STY_ABS, 0x06, 0x20,
-
-                LDA_ABS, 0x07, 0x20,
-                STA_ZPG, 0x00,
-            ];
+                vec![LDA_IMM, 0xcc],
+                vec![STA_ABS, 0x07, 0x20],
+                vec![STX_ABS, 0x06, 0x20],
+                vec![STY_ABS, 0x06, 0x20],
+                vec![LDA_ABS, 0x07, 0x20],
+                vec![STA_ZPG, 0x00],
+            ]
+            .concat();
             for i in 0..code.len() {
                 mmap.ram[0x200 + i] = code[i];
             }

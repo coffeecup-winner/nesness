@@ -25,11 +25,14 @@ fn test() {
         idx += 6;
         let s = u8::from_str_radix(&line[idx..idx + 2], 16).expect("Failed to parse S");
         idx += 7;
-        let ppu_scanline = u16::from_str_radix(&line[idx..idx + 3].trim_start(), 10).expect("Failed to parse PPU X");
+        let ppu_scanline = u16::from_str_radix(&line[idx..idx + 3].trim_start(), 10)
+            .expect("Failed to parse PPU X");
         idx += 4;
-        let ppu_cycle = u16::from_str_radix(&line[idx..idx + 3].trim_start(), 10).expect("Failed to parse PPU X");
+        let ppu_cycle = u16::from_str_radix(&line[idx..idx + 3].trim_start(), 10)
+            .expect("Failed to parse PPU X");
         idx += 8;
-        let cycles = u64::from_str_radix(&line[idx..], 10).expect("Failed to parse number of cycles");
+        let cycles =
+            u64::from_str_radix(&line[idx..], 10).expect("Failed to parse number of cycles");
 
         assert_eq!(pc, nes.cpu.pc);
         assert_eq!(a, nes.cpu.reg_a);

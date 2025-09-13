@@ -26,21 +26,23 @@ fn test_and() {
     let iny = 0x3456;
     let abs = 0x1234;
     let abs2 = 0x12f8;
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        AND_IMM, v.rotate_left(0),
-        AND_ZPG, zpg,
-        AND_ZPX, zpg,
-        AND_ABS, lo(abs), hi(abs),
-        AND_ABX, lo(abs), hi(abs),
-        AND_ABY, lo(abs), hi(abs),
-        AND_INX, zpg_inx,
-        AND_INY, zpg_iny,
-
-        // Page crossing
-        AND_ABX, lo(abs2), hi(abs2),
-        AND_ABY, lo(abs2), hi(abs2),
-        AND_INY, zpg_iny,
-    ]);
+    let (mut cpu, mut mem) = test_cpu(
+        &vec![
+            vec![AND_IMM, v.rotate_left(0)],
+            vec![AND_ZPG, zpg],
+            vec![AND_ZPX, zpg],
+            vec![AND_ABS, lo(abs), hi(abs)],
+            vec![AND_ABX, lo(abs), hi(abs)],
+            vec![AND_ABY, lo(abs), hi(abs)],
+            vec![AND_INX, zpg_inx],
+            vec![AND_INY, zpg_iny],
+            // Page crossing
+            vec![AND_ABX, lo(abs2), hi(abs2)],
+            vec![AND_ABY, lo(abs2), hi(abs2)],
+            vec![AND_INY, zpg_iny],
+        ]
+        .concat(),
+    );
     cpu.reg_x = x;
     cpu.reg_y = y;
     mem[zpg as usize] = v.rotate_left(1);
@@ -121,21 +123,23 @@ fn test_eor() {
     let iny = 0x3456;
     let abs = 0x1234;
     let abs2 = 0x12f8;
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        EOR_IMM, v.rotate_left(0),
-        EOR_ZPG, zpg,
-        EOR_ZPX, zpg,
-        EOR_ABS, lo(abs), hi(abs),
-        EOR_ABX, lo(abs), hi(abs),
-        EOR_ABY, lo(abs), hi(abs),
-        EOR_INX, zpg_inx,
-        EOR_INY, zpg_iny,
-
-        // Page crossing
-        EOR_ABX, lo(abs2), hi(abs2),
-        EOR_ABY, lo(abs2), hi(abs2),
-        EOR_INY, zpg_iny,
-    ]);
+    let (mut cpu, mut mem) = test_cpu(
+        &vec![
+            vec![EOR_IMM, v.rotate_left(0)],
+            vec![EOR_ZPG, zpg],
+            vec![EOR_ZPX, zpg],
+            vec![EOR_ABS, lo(abs), hi(abs)],
+            vec![EOR_ABX, lo(abs), hi(abs)],
+            vec![EOR_ABY, lo(abs), hi(abs)],
+            vec![EOR_INX, zpg_inx],
+            vec![EOR_INY, zpg_iny],
+            // Page crossing
+            vec![EOR_ABX, lo(abs2), hi(abs2)],
+            vec![EOR_ABY, lo(abs2), hi(abs2)],
+            vec![EOR_INY, zpg_iny],
+        ]
+        .concat(),
+    );
     cpu.reg_x = x;
     cpu.reg_y = y;
     mem[zpg as usize] = v.rotate_left(1);
@@ -216,21 +220,23 @@ fn test_ora() {
     let iny = 0x3456;
     let abs = 0x1234;
     let abs2 = 0x12f8;
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        ORA_IMM, v.rotate_left(0),
-        ORA_ZPG, zpg,
-        ORA_ZPX, zpg,
-        ORA_ABS, lo(abs), hi(abs),
-        ORA_ABX, lo(abs), hi(abs),
-        ORA_ABY, lo(abs), hi(abs),
-        ORA_INX, zpg_inx,
-        ORA_INY, zpg_iny,
-
-        // Page crossing
-        ORA_ABX, lo(abs2), hi(abs2),
-        ORA_ABY, lo(abs2), hi(abs2),
-        ORA_INY, zpg_iny,
-    ]);
+    let (mut cpu, mut mem) = test_cpu(
+        &vec![
+            vec![ORA_IMM, v.rotate_left(0)],
+            vec![ORA_ZPG, zpg],
+            vec![ORA_ZPX, zpg],
+            vec![ORA_ABS, lo(abs), hi(abs)],
+            vec![ORA_ABX, lo(abs), hi(abs)],
+            vec![ORA_ABY, lo(abs), hi(abs)],
+            vec![ORA_INX, zpg_inx],
+            vec![ORA_INY, zpg_iny],
+            // Page crossing
+            vec![ORA_ABX, lo(abs2), hi(abs2)],
+            vec![ORA_ABY, lo(abs2), hi(abs2)],
+            vec![ORA_INY, zpg_iny],
+        ]
+        .concat(),
+    );
     cpu.reg_x = x;
     cpu.reg_y = y;
     mem[zpg as usize] = v.rotate_left(1);
@@ -304,10 +310,8 @@ fn test_bit() {
     let v = 0x01;
     let zpg = 0x80;
     let abs = 0x1234;
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        BIT_ZPG, zpg,
-        BIT_ABS, lo(abs), hi(abs),
-    ]);
+    let (mut cpu, mut mem) =
+        test_cpu(&vec![vec![BIT_ZPG, zpg], vec![BIT_ABS, lo(abs), hi(abs)]].concat());
     cpu.reg_a = 0x01;
     mem[zpg as usize] = v + 0;
     mem[abs as usize] = v + 1;

@@ -82,7 +82,6 @@ pub enum Instruction {
     TYA, // Transfer Y to accumulator
 
     // ----- Unofficial opcodes -----
-
     SLO, // Shift left and OR
     RLA, // Rotate left and AND
     SRE, // Shift right and XOR
@@ -118,9 +117,9 @@ pub struct Info {
     pub addressing: AddressingMode, // Decoded addressing mode for the instruction
     pub bytes: u8,                  // Number of bytes taken by the instruction (including opcode)
     pub cycles: u8,                 // Number of cycles it takes to execute
-    pub affected_units: u8,         // Units it can affect (for PC it means apart from normal insn parsing)
-    pub affected_flags: u8,         // Flags it can affect
-    pub name: &'static str,         // Opcode name as a string
+    pub affected_units: u8, // Units it can affect (for PC it means apart from normal insn parsing)
+    pub affected_flags: u8, // Flags it can affect
+    pub name: &'static str, // Opcode name as a string
 }
 
 macro_rules! opcodes {

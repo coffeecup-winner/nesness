@@ -2,10 +2,7 @@ use super::*;
 
 #[test]
 fn test_clc() {
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        CLC_IMP,
-        CLC_IMP,
-    ]);
+    let (mut cpu, mut mem) = test_cpu(&vec![vec![CLC_IMP], vec![CLC_IMP]].concat());
     cpu.flag_carry = true;
 
     assert_eq!(2, cpu.run_one(&mut mem));
@@ -16,10 +13,7 @@ fn test_clc() {
 
 #[test]
 fn test_cli() {
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        CLI_IMP,
-        CLI_IMP,
-    ]);
+    let (mut cpu, mut mem) = test_cpu(&vec![vec![CLI_IMP], vec![CLI_IMP]].concat());
     cpu.flag_interrupt_disable = true;
 
     assert_eq!(2, cpu.run_one(&mut mem));
@@ -30,10 +24,7 @@ fn test_cli() {
 
 #[test]
 fn test_clv() {
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        CLV_IMP,
-        CLV_IMP,
-    ]);
+    let (mut cpu, mut mem) = test_cpu(&vec![vec![CLV_IMP], vec![CLV_IMP]].concat());
     cpu.flag_overflow = true;
 
     assert_eq!(2, cpu.run_one(&mut mem));
@@ -44,10 +35,7 @@ fn test_clv() {
 
 #[test]
 fn test_sec() {
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        SEC_IMP,
-        SEC_IMP,
-    ]);
+    let (mut cpu, mut mem) = test_cpu(&vec![vec![SEC_IMP], vec![SEC_IMP]].concat());
     cpu.flag_carry = false;
 
     assert_eq!(2, cpu.run_one(&mut mem));
@@ -58,10 +46,7 @@ fn test_sec() {
 
 #[test]
 fn test_sei() {
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        SEI_IMP,
-        SEI_IMP,
-    ]);
+    let (mut cpu, mut mem) = test_cpu(&vec![vec![SEI_IMP], vec![SEI_IMP]].concat());
     cpu.flag_interrupt_disable = false;
 
     assert_eq!(2, cpu.run_one(&mut mem));

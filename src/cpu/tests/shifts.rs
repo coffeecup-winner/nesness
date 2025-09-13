@@ -50,12 +50,15 @@ fn test_asl() {
     let x = 0x10;
     let zpg = 0x80;
     let abs = 0x1234;
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        ASL_ZPG, zpg,
-        ASL_ZPX, zpg,
-        ASL_ABS, lo(abs), hi(abs),
-        ASL_ABX, lo(abs), hi(abs),
-    ]);
+    let (mut cpu, mut mem) = test_cpu(
+        &vec![
+            vec![ASL_ZPG, zpg],
+            vec![ASL_ZPX, zpg],
+            vec![ASL_ABS, lo(abs), hi(abs)],
+            vec![ASL_ABX, lo(abs), hi(abs)],
+        ]
+        .concat(),
+    );
     cpu.reg_x = x;
     mem[zpg as usize] = 1 << 0;
     mem[(zpg + x) as usize] = 1 << 1;
@@ -123,12 +126,15 @@ fn test_lsr() {
     let x = 0x10;
     let zpg = 0x80;
     let abs = 0x1234;
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        LSR_ZPG, zpg,
-        LSR_ZPX, zpg,
-        LSR_ABS, lo(abs), hi(abs),
-        LSR_ABX, lo(abs), hi(abs),
-    ]);
+    let (mut cpu, mut mem) = test_cpu(
+        &vec![
+            vec![LSR_ZPG, zpg],
+            vec![LSR_ZPX, zpg],
+            vec![LSR_ABS, lo(abs), hi(abs)],
+            vec![LSR_ABX, lo(abs), hi(abs)],
+        ]
+        .concat(),
+    );
     cpu.reg_x = x;
     mem[zpg as usize] = 1 << 1;
     mem[(zpg + x) as usize] = 1 << 2;
@@ -196,12 +202,15 @@ fn test_rol() {
     let x = 0x10;
     let zpg = 0x80;
     let abs = 0x1234;
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        ROL_ZPG, zpg,
-        ROL_ZPX, zpg,
-        ROL_ABS, lo(abs), hi(abs),
-        ROL_ABX, lo(abs), hi(abs),
-    ]);
+    let (mut cpu, mut mem) = test_cpu(
+        &vec![
+            vec![ROL_ZPG, zpg],
+            vec![ROL_ZPX, zpg],
+            vec![ROL_ABS, lo(abs), hi(abs)],
+            vec![ROL_ABX, lo(abs), hi(abs)],
+        ]
+        .concat(),
+    );
     cpu.reg_x = x;
     mem[zpg as usize] = 1 << 0;
     mem[(zpg + x) as usize] = 1 << 1;
@@ -269,12 +278,15 @@ fn test_ror() {
     let x = 0x10;
     let zpg = 0x80;
     let abs = 0x1234;
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        ROR_ZPG, zpg,
-        ROR_ZPX, zpg,
-        ROR_ABS, lo(abs), hi(abs),
-        ROR_ABX, lo(abs), hi(abs),
-    ]);
+    let (mut cpu, mut mem) = test_cpu(
+        &vec![
+            vec![ROR_ZPG, zpg],
+            vec![ROR_ZPX, zpg],
+            vec![ROR_ABS, lo(abs), hi(abs)],
+            vec![ROR_ABX, lo(abs), hi(abs)],
+        ]
+        .concat(),
+    );
     cpu.reg_x = x;
     mem[zpg as usize] = 1 << 1;
     mem[(zpg + x) as usize] = 1 << 2;

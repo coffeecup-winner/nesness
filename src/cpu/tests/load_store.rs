@@ -23,21 +23,23 @@ fn test_lda() {
     let iny = 0x3456;
     let abs = 0x1234;
     let abs2 = 0x12f8;
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        LDA_IMM, v + 0,
-        LDA_ZPG, zpg,
-        LDA_ZPX, zpg,
-        LDA_ABS, lo(abs), hi(abs),
-        LDA_ABX, lo(abs), hi(abs),
-        LDA_ABY, lo(abs), hi(abs),
-        LDA_INX, zpg_inx,
-        LDA_INY, zpg_iny,
-
-        // Page crossing
-        LDA_ABX, lo(abs2), hi(abs2),
-        LDA_ABY, lo(abs2), hi(abs2),
-        LDA_INY, zpg_iny,
-    ]);
+    let (mut cpu, mut mem) = test_cpu(
+        &vec![
+            vec![LDA_IMM, v + 0],
+            vec![LDA_ZPG, zpg],
+            vec![LDA_ZPX, zpg],
+            vec![LDA_ABS, lo(abs), hi(abs)],
+            vec![LDA_ABX, lo(abs), hi(abs)],
+            vec![LDA_ABY, lo(abs), hi(abs)],
+            vec![LDA_INX, zpg_inx],
+            vec![LDA_INY, zpg_iny],
+            // Page crossing
+            vec![LDA_ABX, lo(abs2), hi(abs2)],
+            vec![LDA_ABY, lo(abs2), hi(abs2)],
+            vec![LDA_INY, zpg_iny],
+        ]
+        .concat(),
+    );
     cpu.reg_x = x;
     cpu.reg_y = y;
     mem[zpg as usize] = v + 1;
@@ -98,16 +100,18 @@ fn test_ldx() {
     let zpg = 0x80;
     let abs = 0x1234;
     let abs2 = 0x12f8;
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        LDX_IMM, v + 0,
-        LDX_ZPG, zpg,
-        LDX_ZPY, zpg,
-        LDX_ABS, lo(abs), hi(abs),
-        LDX_ABY, lo(abs), hi(abs),
-
-        // Page crossing
-        LDX_ABY, lo(abs2), hi(abs2),
-    ]);
+    let (mut cpu, mut mem) = test_cpu(
+        &vec![
+            vec![LDX_IMM, v + 0],
+            vec![LDX_ZPG, zpg],
+            vec![LDX_ZPY, zpg],
+            vec![LDX_ABS, lo(abs), hi(abs)],
+            vec![LDX_ABY, lo(abs), hi(abs)],
+            // Page crossing
+            vec![LDX_ABY, lo(abs2), hi(abs2)],
+        ]
+        .concat(),
+    );
     cpu.reg_y = y;
     mem[zpg as usize] = v + 1;
     mem[(zpg + y) as usize] = v + 2;
@@ -147,16 +151,18 @@ fn test_ldy() {
     let zpg = 0x80;
     let abs = 0x1234;
     let abs2 = 0x12f8;
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        LDY_IMM, v + 0,
-        LDY_ZPG, zpg,
-        LDY_ZPX, zpg,
-        LDY_ABS, lo(abs), hi(abs),
-        LDY_ABX, lo(abs), hi(abs),
-
-        // Page crossing
-        LDY_ABX, lo(abs2), hi(abs2),
-    ]);
+    let (mut cpu, mut mem) = test_cpu(
+        &vec![
+            vec![LDY_IMM, v + 0],
+            vec![LDY_ZPG, zpg],
+            vec![LDY_ZPX, zpg],
+            vec![LDY_ABS, lo(abs), hi(abs)],
+            vec![LDY_ABX, lo(abs), hi(abs)],
+            // Page crossing
+            vec![LDY_ABX, lo(abs2), hi(abs2)],
+        ]
+        .concat(),
+    );
     cpu.reg_x = x;
     mem[zpg as usize] = v + 1;
     mem[(zpg + x) as usize] = v + 2;
@@ -200,15 +206,18 @@ fn test_sta() {
     let zpg_iny = 0xc0;
     let iny = 0x3456;
     let abs = 0x1234;
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        STA_ZPG, zpg,
-        STA_ZPX, zpg,
-        STA_ABS, lo(abs), hi(abs),
-        STA_ABX, lo(abs), hi(abs),
-        STA_ABY, lo(abs), hi(abs),
-        STA_INX, zpg_inx,
-        STA_INY, zpg_iny,
-    ]);
+    let (mut cpu, mut mem) = test_cpu(
+        &vec![
+            vec![STA_ZPG, zpg],
+            vec![STA_ZPX, zpg],
+            vec![STA_ABS, lo(abs), hi(abs)],
+            vec![STA_ABX, lo(abs), hi(abs)],
+            vec![STA_ABY, lo(abs), hi(abs)],
+            vec![STA_INX, zpg_inx],
+            vec![STA_INY, zpg_iny],
+        ]
+        .concat(),
+    );
     cpu.reg_x = x;
     cpu.reg_y = y;
     mem[(zpg_inx + x) as usize] = lo(inx);
@@ -256,11 +265,14 @@ fn test_stx() {
     let v = 0x40;
     let zpg = 0x80;
     let abs = 0x1234;
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        STX_ZPG, zpg,
-        STX_ZPY, zpg,
-        STX_ABS, lo(abs), hi(abs),
-    ]);
+    let (mut cpu, mut mem) = test_cpu(
+        &vec![
+            vec![STX_ZPG, zpg],
+            vec![STX_ZPY, zpg],
+            vec![STX_ABS, lo(abs), hi(abs)],
+        ]
+        .concat(),
+    );
     cpu.reg_y = y;
 
     cpu.reg_x = v + 0;
@@ -291,11 +303,14 @@ fn test_sty() {
     let v = 0x40;
     let zpg = 0x80;
     let abs = 0x1234;
-    let (mut cpu, mut mem) = test_cpu(&vec![
-        STY_ZPG, zpg,
-        STY_ZPX, zpg,
-        STY_ABS, lo(abs), hi(abs),
-    ]);
+    let (mut cpu, mut mem) = test_cpu(
+        &vec![
+            vec![STY_ZPG, zpg],
+            vec![STY_ZPX, zpg],
+            vec![STY_ABS, lo(abs), hi(abs)],
+        ]
+        .concat(),
+    );
     cpu.reg_x = x;
 
     cpu.reg_y = v + 0;
