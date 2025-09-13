@@ -16,6 +16,15 @@ struct AudioBuffer {
     sender: Sender<Vec<u8>>,
 }
 
+impl std::ops::Drop for AudioBuffer {
+    fn drop(&mut self) {
+        // Ensure the channel is closed when the AudioBuffer is dropped
+        self.sender
+            .send(vec![0])
+            .expect("Failed to flush the audio buffer");
+    }
+}
+
 impl AudioBuffer {
     pub fn new(size: usize, sender: Sender<Vec<u8>>) -> Self {
         AudioBuffer {
@@ -40,8 +49,8 @@ impl AudioBuffer {
 
 #[allow(clippy::upper_case_acronyms)]
 pub struct APU {
-    stream: Stream,
     audio_buffer: AudioBuffer,
+    stream: Stream,
     audio_clock_divider: ClockDivider<400>, // TODO: fix this value
 
     // Functional units
