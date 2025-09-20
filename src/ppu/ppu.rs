@@ -58,8 +58,8 @@ pub struct PPU {
     temp_tile_attr: u8,
     temp_tile_pattern_lo: u8,
     temp_tile_pattern_hi: u8,
-    current_tile_idx: u8,
-    current_tile_attr: u8,
+    current_tile_attr_lo: ShiftRegister16,
+    current_tile_attr_hi: ShiftRegister16,
     shreg_bg_tile_lo: ShiftRegister16,
     shreg_bg_tile_hi: ShiftRegister16,
 
@@ -113,8 +113,8 @@ impl PPU {
             temp_tile_attr: 0,
             temp_tile_pattern_lo: 0,
             temp_tile_pattern_hi: 0,
-            current_tile_idx: 0,
-            current_tile_attr: 0,
+            current_tile_attr_lo: ShiftRegister16::new(),
+            current_tile_attr_hi: ShiftRegister16::new(),
             shreg_bg_tile_lo: ShiftRegister16::new(),
             shreg_bg_tile_hi: ShiftRegister16::new(),
             latch: 0,
@@ -186,8 +186,18 @@ impl PPU {
                             self.temp_tile_pattern_hi = mem.read_u8(addr);
                         }
                         7 => {
-                            self.current_tile_idx = self.temp_tile_idx;
-                            self.current_tile_attr = self.temp_tile_attr;
+                            self.current_tile_attr_lo
+                                .feed(if self.temp_tile_attr & 0x01 != 0 {
+                                    0xff
+                                } else {
+                                    0x00
+                                });
+                            self.current_tile_attr_hi
+                                .feed(if self.temp_tile_attr & 0x02 != 0 {
+                                    0xff
+                                } else {
+                                    0x00
+                                });
                             self.shreg_bg_tile_lo.feed(self.temp_tile_pattern_lo);
                             self.shreg_bg_tile_hi.feed(self.temp_tile_pattern_hi);
                             // Do nothing, the fetch happens on the next cycle
@@ -292,26 +302,22 @@ impl PPU {
                 let x = self.current_cycle - 1;
                 let y = self.current_scanline;
 
-                let bg_idx =
-                    if !self.show_background || (!self.show_background_leftmost_8pix && x < 8) {
+                let bg_idx = if !self.show_background
+                    || (!self.show_background_leftmost_8pix && x < 8)
+                {
+                    None
+                } else {
+                    let bit0 = (self.shreg_bg_tile_lo.hi() >> (7 - self.reg_x)) & 0x01;
+                    let bit1 = (self.shreg_bg_tile_hi.hi() >> (7 - self.reg_x)) & 0x01;
+                    if bit0 == 0 && bit1 == 0 {
                         None
                     } else {
-                        let bit0 = (self.shreg_bg_tile_lo.hi() >> (7 - self.reg_x)) & 0x01;
-                        let bit1 = (self.shreg_bg_tile_hi.hi() >> (7 - self.reg_x)) & 0x01;
-                        if bit0 == 0 && bit1 == 0 {
-                            None
-                        } else {
-                            // TODO: shift register
-                            let attr = self.current_tile_attr;
-                            let shift = match (x / 32 > 15, y / 32 > 15) {
-                                (true, true) => 6,
-                                (true, false) => 2,
-                                (false, true) => 4,
-                                (false, false) => 0,
-                            };
-                            Some((((attr >> shift) & 0x03) << 2) | (bit1 << 1) | bit0)
-                        }
-                    };
+                        let attr_bit0 = (self.current_tile_attr_lo.hi() >> (7 - self.reg_x)) & 0x01;
+                        let attr_bit1 = (self.current_tile_attr_hi.hi() >> (7 - self.reg_x)) & 0x01;
+                        let attr = ((attr_bit1 << 1) | attr_bit0) << 2;
+                        Some(attr | (bit1 << 1) | bit0)
+                    }
+                };
 
                 let sprite_idx =
                     if !self.show_sprites || (!self.show_sprites_leftmost_8pix && x < 8) {
@@ -369,6 +375,8 @@ impl PPU {
 
         // Shift all shift registers
         if (2..258).contains(&self.current_cycle) {
+            self.current_tile_attr_lo.shift();
+            self.current_tile_attr_hi.shift();
             self.shreg_bg_tile_lo.shift();
             self.shreg_bg_tile_hi.shift();
             for s in &mut self.oam_evaluated {
