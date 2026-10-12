@@ -242,7 +242,7 @@ impl PPU {
                     // Horizontal position copy from t to v
                     self.reg_v
                         .set((self.reg_v.get() & !0x041f) | (self.reg_t & 0x041f));
-                } else if (280..=304).contains(&c) && self.current_scanline == 261 {
+                } else if (280..=304).contains(&c) && self.current_scanline >= 240 {
                     // Vertical position copy from t to v
                     self.reg_v
                         .set((self.reg_v.get() & !0x7be0) | (self.reg_t & 0x7be0));
@@ -325,8 +325,11 @@ impl PPU {
                     } else {
                         let mut result = None;
                         for s in &self.oam_evaluated {
-                            if !s.is_valid || s.x != 0 {
+                            if !s.is_valid {
                                 break;
+                            }
+                            if s.x != 0 {
+                                continue;
                             }
 
                             let bit0 = if s.tile_lo.get_u1() { 1 } else { 0 };
@@ -404,8 +407,8 @@ impl PPU {
         }
         if self.current_scanline > 261 {
             self.current_scanline = 0;
+            self.is_odd_frame = !self.is_odd_frame;
         }
-        self.is_odd_frame = !self.is_odd_frame;
     }
 
     pub fn read_ppuctrl(&self) -> u8 {
